@@ -92,42 +92,56 @@ export async function GET(request: NextRequest) {
     const hasMore = filtered.length > limit;
     const items = filtered.slice(0, limit);
 
-    const enriched = await Promise.all(
-      items.map(async (c) => {
-        const stockId = c.articles[0]?.article.stockId;
-        const stock = stockId
-          ? await prisma.stock.findUnique({ where: { id: stockId } })
-          : null;
+    const enriched = (
+      await Promise.all(
+        items.map(async (c) => {
+          const stockId = c.articles[0]?.article.stockId;
+          const stock = stockId
+            ? await prisma.stock.findUnique({ where: { id: stockId } })
+            : null;
 
-        return {
-          id: c.id,
-          title: c.title,
-          aiSummary: c.aiSummary,
-          keyPoints: c.keyPoints,
-          verificationStatus: c.verificationStatus,
-          sourceCount: c.sourceCount,
-          publishedAt: c.publishedAt,
-          createdAt: c.createdAt,
-          stock: stock
-            ? { symbol: stock.symbol, nameCn: stock.nameCn, market: stock.market }
-            : null,
-          sources: c.articles.map((ca) => ({
-            title: ca.article.title,
-            url: ca.article.url,
-            source: ca.article.source,
-            publishedAt: ca.article.publishedAt,
-          })),
-        };
-      })
-    );
+          // 核心防御：如果该股票是 A 股或港股，但来源是 Yahoo，直接当作历史脏数据丢弃过滤
+          if (stock && (stock.market === "CN" || stock.market === "HK")) {
+            const hasYahooOnly = c.articles.every((ca) => ca.article.source === "yahoo");
+            if (hasYahooOnly) {
+              return null;
+            }
+          }
 
-    const response = NextResponse.json({
-      items: enriched,
-      nextCursor: hasMore ? String(items[items.length - 1]?.id) : null,
-      refreshing: isStale,
-    });
-    response.headers.set("Cache-Control", "no-store, max-age=0");
-    return response;
+          return {
+            id: c.id,
+            title: c.title,
+            aiSummary: c.aiSummary,
+            keyPoints: c.keyPoints,
+            verificationStatus: c.verificationStatus,
+            sourceCount: c.sourceCount,
+            publishedAt: c.publishedAt,
+            createdAt: c.createdAt,
+            stock: stock
+              ? { symbol: stock.symbol, nameCn: stock.nameCn, market: stock.market }
+              : null,
+            sources: c.articles.map((ca) => ({
+              title: ca.article.title,
+              url: ca.article.url,
+              source: ca.article.source,
+              publishedAt: ca.article.publishedAt,
+            })),
+          };
+        })
+      )
+    ).filter(Boolean);
+
+// DELETE /api/news?all=true (一键清理所有历史新闻缓存与聚簇)
+export async function DELETE(request: NextRequest) {
+  try {
+    const all = request.nextUrl.searchParams.get("all") === "true";
+    if (all) {
+      await prisma.clusterArticle.deleteMany({});
+      await prisma.newsCluster.deleteMany({});
+      await prisma.article.deleteMany({});
+      return NextResponse.json({ success: true, message: "所有历史新闻已彻底清空" });
+    }
+    return NextResponse.json({ error: "Missing parameter 'all=true'" }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
