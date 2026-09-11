@@ -33,13 +33,28 @@ export default function Home() {
             AI 驱动的全球股市新闻聚合 — 追踪美股、港股、A股热点
           </p>
         </div>
-        <button
-          onClick={() => setIsManagerOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-text-primary text-xs font-medium transition-colors shadow-xs"
-        >
-          <span>⚙️</span>
-          <span>管理自选</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (confirm("确定要清空数据库中的所有历史新闻缓存吗？将彻底移除之前的旧数据并重新抓取。")) {
+                await fetch("/api/news?all=true", { method: "DELETE" });
+                handleStocksChanged();
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium transition-colors cursor-pointer"
+            title="一键清空数据库里的所有旧新闻"
+          >
+            <span>🗑️</span>
+            <span>清空旧新闻</span>
+          </button>
+          <button
+            onClick={() => setIsManagerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-text-primary text-xs font-medium transition-colors shadow-xs cursor-pointer"
+          >
+            <span>⚙️</span>
+            <span>管理自选</span>
+          </button>
+        </div>
       </header>
 
       <TickerStrip ref={tickerRef} />
