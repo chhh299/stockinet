@@ -64,7 +64,19 @@ export async function fetchAndProcessNewsBatch(
       const result = results[i];
       const adapter = adapters[i];
       if (result.status === "fulfilled") {
-        allRawArticles.push(...result.value);
+        // 对 A 股 / 港股新闻进行强校验过滤：标题或摘要必须包含股票名称或纯数字代码，杜绝无关英文/宏观噪音
+        const validArticles = result.value.filter((art) => {
+          if (stock.market === "CN" || stock.market === "HK") {
+            const cleanCode = stock.symbol.replace(/\.(SS|SZ|HK)/i, "");
+            const text = `${art.title} ${art.snippet}`;
+            const matchesName = stock.nameCn && text.includes(stock.nameCn);
+            const matchesCode = cleanCode.length >= 4 && text.includes(cleanCode);
+            return matchesName || matchesCode;
+          }
+          return true;
+        });
+
+        allRawArticles.push(...validArticles);
       } else {
         errors.push(`Fetch error for ${stock.symbol} via ${adapter.id}: ${result.reason}`);
       }

@@ -27,8 +27,8 @@ export const GoogleNewsAdapter: SourceAdapter = {
 export const YahooAdapter: SourceAdapter = {
   id: "yahoo",
   name: "Yahoo Finance",
-  supportsMarket(): boolean {
-    return true; // Supports all markets
+  supportsMarket(market: string): boolean {
+    return market === "US" || market === "INDEX"; // Yahoo 只服务于美股或海外指数，绝不用于 A 股 / 港股
   },
   fetch: fetchYahooNews,
 };

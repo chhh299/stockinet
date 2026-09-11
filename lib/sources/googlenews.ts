@@ -55,25 +55,8 @@ export const fetchGoogleNews: NewsFetcher = async ({ name, nameCn, market, stock
     const isCjk = market === "CN" || market === "HK";
 
     if (isCjk) {
-      // Fetch English and Chinese queries in parallel for CN/HK stocks
-      const [enArticles, zhArticles] = await Promise.allSettled([
-        fetchFromQuery(buildEnQuery(name), stockId),
-        fetchFromQuery(buildZhQuery(nameCn), stockId),
-      ]);
-
-      const en = enArticles.status === "fulfilled" ? enArticles.value : [];
-      const zh = zhArticles.status === "fulfilled" ? zhArticles.value : [];
-
-      // Deduplicate by URL across both result sets
-      const seen = new Set<string>();
-      const combined: RawArticle[] = [];
-      for (const article of [...en, ...zh]) {
-        if (!seen.has(article.url)) {
-          seen.add(article.url);
-          combined.push(article);
-        }
-      }
-      return combined;
+      // 对 A 股 / 港股，直接精准使用中文名 + 股票 检索，不再盲目拼接英文，避免拉取到国外重名股票或杂音
+      return fetchFromQuery(buildZhQuery(nameCn), stockId);
     }
 
     return fetchFromQuery(buildEnQuery(name), stockId);

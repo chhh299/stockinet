@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
       });
       const stockIds = new Set(stocks.map((s) => s.id));
       filtered = clusters.filter((c) => {
-        const sid = c.articles[0]?.article.stockId;
-        return sid !== undefined && stockIds.has(sid);
+        // 检查聚簇下任意一篇文章关联的股票 ID 是否属于当前市场
+        return c.articles.some((ca) => ca.article?.stockId && stockIds.has(ca.article.stockId));
       });
     }
 
