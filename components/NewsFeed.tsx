@@ -34,8 +34,20 @@ export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
       setErrorMsg(null);
 
       if (triggerFetch) {
-        // 主动触发一次增量抓取
-        await fetch("/api/v1/hermes/trigger-fetch", { method: "POST" }).catch(() => null);
+        // 主动触发一次增量抓取并等待执行完毕
+        try {
+          const fetchRes = await fetch("/api/v1/hermes/trigger-fetch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skipAi: false }),
+          });
+          const fetchResult = await fetchRes.json();
+          if (!fetchRes.ok && fetchResult.message) {
+            console.warn("Trigger fetch notice:", fetchResult.message);
+          }
+        } catch {
+          // ignore
+        }
       }
 
       const params = new URLSearchParams();
