@@ -56,6 +56,35 @@ export async function fetchClsNews({
         }
       }
     }
+
+    // 2. 如果页面解析未命中，补充调用财联社公开 API 搜索接口进行定向个股检索
+    if (articles.length === 0) {
+      try {
+        const apiUrl = `https://www.cls.cn/api/sw?app=CIM&keyword=${encodeURIComponent(nameCn)}&page=0&rn=10&os=web`;
+        const apiRes = await fetch(apiUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          const items = apiData?.data?.telegraph || apiData?.data?.roll || [];
+          for (const item of items) {
+            articles.push({
+              title: item.title || item.content?.slice(0, 60) || nameCn,
+              snippet: item.content || item.brief || "",
+              url: `https://www.cls.cn/detail/${item.id}`,
+              source: "cls",
+              publishedAt: item.ctime ? new Date(item.ctime * 1000) : new Date(),
+              stockId,
+            });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
   } catch {
     // Fallback gracefully on anti-scraping or network error
   }
