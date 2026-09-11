@@ -45,7 +45,7 @@ export async function GET() {
         latestHeadline: headlinesMap.get(s.symbol) || null,
       }))
     );
-    response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+    response.headers.set("Cache-Control", "no-store, max-age=0");
     return response;
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

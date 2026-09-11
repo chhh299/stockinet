@@ -142,3 +142,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
+
+// DELETE /api/stocks (批量删除/全部清空)
+export async function DELETE(request: NextRequest) {
+  try {
+    const all = request.nextUrl.searchParams.get("all") === "true";
+    if (all) {
+      const deleted = await prisma.stock.deleteMany({});
+      return NextResponse.json({ success: true, count: deleted.count });
+    }
+    return NextResponse.json({ error: "Missing parameter 'all=true'" }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}

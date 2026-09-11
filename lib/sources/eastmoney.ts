@@ -83,6 +83,37 @@ export async function fetchEastMoneyNews({
     // Fallback gracefully
   }
 
+  // 3. 定向东方财富个股新闻搜索 (搜狗/东方财富个股研报资讯)
+  try {
+    const cleanCode = symbol.replace(/\.(SS|SZ|HK)/i, "");
+    const searchUrl = `https://search-api-web.eastmoney.com/search/jsonp?cb=callback&param=%7B%22code%22%3A%22${cleanCode}%22%2C%22keyword%22%3A%22${encodeURIComponent(nameCn)}%22%2C%22type%22%3A%5B%22cmsarticlenew%22%5D%2C%22pageindex%22%3A1%2C%22pagesize%22%3A10%7D`;
+    const res = await fetch(searchUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      const text = await res.text();
+      const match = text.match(/callback\(([\s\S]*)\);?/);
+      if (match && match[1]) {
+        const parsed = JSON.parse(match[1]);
+        const items = parsed?.result?.cmsarticlenew || [];
+        for (const item of items) {
+          if (!item.title || !item.url) continue;
+          articles.push({
+            title: item.title.replace(/<[^>]+>/g, ""),
+            snippet: (item.content || item.title).replace(/<[^>]+>/g, "").slice(0, 100),
+            url: item.url,
+            source: "eastmoney",
+            publishedAt: item.date ? new Date(item.date) : new Date(),
+            stockId,
+          });
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   // Deduplicate by URL
   const seen = new Set<string>();
   return articles.filter((a) => {

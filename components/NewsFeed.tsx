@@ -70,12 +70,23 @@ export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
 
   return (
     <div>
-      <FilterBar
-        selected={market}
-        onSelect={setMarket}
-        verifiedOnly={verifiedOnly}
-        onVerifiedToggle={setVerifiedOnly}
-      />
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <FilterBar
+            selected={market}
+            onSelect={setMarket}
+            verifiedOnly={verifiedOnly}
+            onVerifiedToggle={setVerifiedOnly}
+          />
+          <button
+            onClick={() => fetchNews(true)}
+            disabled={refreshing}
+            className="px-3 py-1.5 rounded-lg border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5 shrink-0"
+            title="手动触发全量自选股新闻采集与聚合"
+          >
+            <span>{refreshing ? "⏳" : "🔄"}</span>
+            <span>{refreshing ? "抓取中..." : "立即抓取"}</span>
+          </button>
+        </div>
       {loading ? (
         <div className="flex items-center justify-center py-20 text-text-secondary text-sm">
           加载中...

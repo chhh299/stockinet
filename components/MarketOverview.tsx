@@ -22,7 +22,8 @@ export const MarketOverview = forwardRef<MarketOverviewHandle>((_props, ref) => 
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/market");
+      // 增加时间戳防缓存
+      const res = await fetch(`/api/market?_t=${Date.now()}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setStocks(data);

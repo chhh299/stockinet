@@ -9,7 +9,8 @@ const BATCH_SIZE = 2;
 
 export async function fetchAndProcessNewsBatch(
   batch: number,
-  skipAi = false
+  skipAi = false,
+  targetSymbol?: string
 ): Promise<{
   articlesFetched: number;
   clustersCreated: number;
@@ -23,14 +24,23 @@ export async function fetchAndProcessNewsBatch(
   await seedInitialStocks();
 
   // Retrieve active stocks from database
-  const activeStocks = await prisma.stock.findMany({
+  let activeStocks = await prisma.stock.findMany({
     where: { isActive: true },
     orderBy: { id: "asc" },
   });
 
+  if (targetSymbol) {
+    activeStocks = activeStocks.filter((s) => s.symbol.toUpperCase() === targetSymbol.toUpperCase());
+  }
+
+  // If batch === -1, process ALL active stocks in one run
+  let batchStocks = activeStocks;
   const batchesTotal = Math.max(1, Math.ceil(activeStocks.length / BATCH_SIZE));
-  const start = batch * BATCH_SIZE;
-  const batchStocks = activeStocks.slice(start, start + BATCH_SIZE);
+
+  if (batch >= 0) {
+    const start = batch * BATCH_SIZE;
+    batchStocks = activeStocks.slice(start, start + BATCH_SIZE);
+  }
 
   if (batchStocks.length === 0) {
     return { articlesFetched: 0, clustersCreated: 0, batchesTotal, errors: ["Invalid batch or no active stocks"] };

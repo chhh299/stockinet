@@ -18,7 +18,7 @@ export const TickerStrip = forwardRef<TickerStripHandle>((_props, ref) => {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/market");
+      const res = await fetch(`/api/market?_t=${Date.now()}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setStocks(data);

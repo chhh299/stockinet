@@ -182,6 +182,27 @@ export function StockManagerModal({
     }
   }
 
+  async function handleDeleteAllStocks() {
+    if (!confirm("⚠️ 确定要一键清空所有自选股吗？此操作将删除全部监控标的。")) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/stocks?all=true", {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setStocks([]);
+        onChanged();
+      } else {
+        const data = await res.json();
+        alert(data.error || "清空失败");
+      }
+    } catch (err) {
+      alert(`清空错误: ${String(err)}`);
+    }
+  }
+
   async function handleDeleteStock(id: number, stockSymbol: string) {
     if (!confirm(`确定要移除自选标的 ${stockSymbol} 吗？`)) {
       return;
@@ -327,6 +348,21 @@ export function StockManagerModal({
           </form>
 
           {/* List */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+              当前监控清单 ({stocks.length})
+            </div>
+            {stocks.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllStocks}
+                className="text-[11px] text-down/80 hover:text-down hover:underline transition-colors px-2 py-1 rounded bg-down/10 hover:bg-down/20 cursor-pointer"
+              >
+                🗑️ 全部清空自选股
+              </button>
+            )}
+          </div>
+
           {error && (
             <div className="text-xs text-down bg-down/10 p-2.5 rounded border border-down/20">
               {error}

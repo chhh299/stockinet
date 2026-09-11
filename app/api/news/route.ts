@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       nextCursor: hasMore ? String(items[items.length - 1]?.id) : null,
       refreshing: isStale,
     });
-    response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+    response.headers.set("Cache-Control", "no-store, max-age=0");
     return response;
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

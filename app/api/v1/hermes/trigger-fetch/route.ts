@@ -15,9 +15,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const skipAi = Boolean(body.skipAi);
+    const symbol = body.symbol ? String(body.symbol).trim() : undefined;
     const startMs = Date.now();
 
-    const result = await fetchAndProcessNewsBatch(0, skipAi);
+    // 默认执行全量或指定股票的并发抓取 (-1 表示全量)
+    const result = await fetchAndProcessNewsBatch(-1, skipAi, symbol);
     const elapsedMs = Date.now() - startMs;
 
     return NextResponse.json({
