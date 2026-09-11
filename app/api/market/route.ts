@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { seedInitialStocks } from "@/lib/stocks-seed";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await seedInitialStocks();
+
     const stocks = await prisma.stock.findMany({
-      orderBy: { market: "asc" },
+      where: { isActive: true },
+      orderBy: [{ market: "asc" }, { symbol: "asc" }],
       select: {
         symbol: true,
         name: true,

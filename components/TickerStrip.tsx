@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 
 interface StockSnapshot {
   symbol: string;
@@ -9,21 +9,32 @@ interface StockSnapshot {
   changePct: number | null;
 }
 
-export function TickerStrip() {
+export interface TickerStripHandle {
+  refresh: () => Promise<void>;
+}
+
+export const TickerStrip = forwardRef<TickerStripHandle>((_props, ref) => {
   const [stocks, setStocks] = useState<StockSnapshot[]>([]);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch("/api/market");
-        const data = await res.json();
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/market");
+      const data = await res.json();
+      if (Array.isArray(data)) {
         setStocks(data);
-      } catch {}
-    }
+      }
+    } catch {}
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    refresh: fetchData,
+  }));
+
+  useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   if (stocks.length === 0) return null;
 
@@ -58,4 +69,6 @@ export function TickerStrip() {
       </div>
     </div>
   );
-}
+});
+
+TickerStrip.displayName = "TickerStrip";

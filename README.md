@@ -35,13 +35,14 @@ Tracks US, Hong Kong, and A-share markets — multi-source fetching (incl. Chine
 ### 🎯 核心特性
 
 - **🌍 多市场覆盖** — 美股（AAPL/NVDA/TSLA/BRK.B/MU/INTC/ASML/TSM/PLTR）、A 股（茅台 / 承德露露）、港股（腾讯 / 泡泡玛特），以及 S&P 500 / 纳斯达克 / 沪深 300 指数。
-- **📰 三源抓取** — 同时从 Finnhub、Google News RSS、Yahoo Finance 抓取，最大化覆盖率与可核验性。
-- **🌐 中英双语新闻** — 港股 / A 股同时发起英文和中文（`zh-CN`）Google News 查询，补齐境内中文报道，结果自动去重合并。
+- **📰 多源并发抓取** — 支持 Finnhub、Google News RSS、Yahoo Finance，以及国内源**东方财富（EastMoney）**、**财联社（CLS）**与**新浪财经（Sina）**，最大化覆盖率与可核验性，支持配置开关按需启停。
+- **🌐 中英双语新闻** — 港股 / A 股同时发起英文和中文（`zh-CN`）Google News 查询及国内本土快讯源抓取，补齐境内中文报道，结果自动去重合并。
 - **🔗 多源核验** — 同一新闻被两个及以上独立源报道时标记为 ✅ 已核验，只看主流信息可一键过滤。
-- **🤖 AI 相关性过滤** — 对所有市场新闻调用 DeepSeek 剔除"标题撞名"、纯市场杂谈、行业泛文，保证页面上的每条都真正与自选股相关。
-- **🧠 AI 中文摘要** — DeepSeek 为所有市场（美股 / 港股 / A 股）生成 1–2 句中文要点摘要，附带关键事实清单。
+- **🤖 通用 OpenAI 兼容 LLM** — 支持任意兼容 OpenAI 规范的大模型（OpenAI、DeepSeek、Ollama、OneAPI、Qwen、Claude Proxy 等），通过环境变量动态配置模型端点与凭据。
+- **🧠 AI 中文摘要与过滤** — 大模型对所有市场新闻进行相关性过滤并生成 1–2 句中文要点摘要与关键事实清单，附带指数退避重试与思考标签清洗。
+- **📊 动态自选股管理** — 数据库驱动的自选股池，提供 `/api/stocks` CRUD 接口与前端可视化管理弹窗（可动态新增、启停、删除自选股）。
+- **🤖 Hermes 投研开放 API** — 提供 `/api/v1/hermes/*` 规范 REST 接口（Bearer Token 鉴权），配套 OpenAPI/Hermes Agent Tool 描述（`hermes-tool.json`）与完整开发文档。
 - **🔄 智能刷新** — 每天 UTC 0 点由 Vercel Cron 全量刷新；用户访问时若数据超过 65 分钟未更新，页面加载会自动触发懒刷新兜底。
-- **📊 自选股概览** — 实时价格、当日涨跌幅、最新头条，一屏看完。
 - **🌙 暗色优先 UI** — Tailwind v4，移动端友好。
 
 ### 🏗️ 技术架构
@@ -71,22 +72,26 @@ Tracks US, Hong Kong, and A-share markets — multi-source fetching (incl. Chine
                   (en-US + zh-CN)
 ```
 
-**关键文件夹**
+**关键目录与文件**
 
 | 路径 | 作用 |
 |------|------|
 | `app/`                       | Next.js App Router 页面 + API 路由 |
 | `app/api/news/route.ts`       | 新闻列表 API（含懒刷新） |
 | `app/api/market/route.ts`     | 自选股快照 API |
+| `app/api/stocks/route.ts`     | 自选股增删查 API（支持按市场筛选与启停） |
+| `app/api/v1/hermes/`          | Hermes 智能体专用 REST API（含 news / stocks / trigger-fetch） |
 | `app/api/cron/fetch-news/`    | Vercel Cron 入口（Bearer 鉴权） |
-| `lib/sources/`                | 三个数据源适配器（finnhub / googlenews / yahoo） |
-| `lib/pipeline/fetch-all.ts`   | 抓取-聚类-入库主流程 |
+| `lib/llm/client.ts`           | 通用 OpenAI 兼容 LLM 客户端（含超时、重试、标签清洗与降级容错） |
+| `lib/sources/`                | 可插拔资讯源（finnhub / googlenews / yahoo / eastmoney / cls / sina） |
+| `lib/pipeline/fetch-all.ts`   | 抓取-去重-入库主流水线 |
 | `lib/pipeline/dedup.ts`       | 基于 Jaccard 词袋的标题相似度去重 |
-| `lib/pipeline/summarize.ts`   | DeepSeek 相关性过滤 + 中文摘要 |
-| `lib/market.ts`               | Finnhub → Yahoo v8 兜底的实时价格 |
-| `lib/stocks.ts`               | 自选股清单（在这里改） |
-| `components/`                 | NewsCard / NewsFeed / TickerStrip / MarketOverview / FilterBar |
-| `prisma/schema.prisma`        | 数据库模型 |
+| `lib/pipeline/summarize.ts`   | 大模型相关性过滤 + 中文要点事实摘要 |
+| `lib/stocks-seed.ts`          | 自选股初始数据 Seed 种子机制 |
+| `components/StockManagerModal.tsx` | 前端自选股可视化管理面板组件 |
+| `docs/hermes-api.md`          | Hermes API 开放标准与集成指南 |
+| `hermes-tool.json`            | Hermes / Agent Tool Function 声明契约 |
+| `prisma/schema.prisma`        | 数据库模型（Stock / Article / NewsCluster / ClusterArticle） |
 
 ### 🚀 快速开始
 
@@ -106,14 +111,19 @@ npm install
 cp .env.example .env.local
 ```
 
-打开 `.env.local`，填好以下四个变量：
+打开 `.env.local`，根据需要配置环境变量：
 
-| 变量 | 必填 | 说明 |
-|------|------|------|
+| 变量 | 必填 | 默认值 / 说明 |
+|------|------|-------------|
 | `DATABASE_URL`      | ✅ | Postgres 连接串，本地可用 Docker / 远程 Neon / Vercel Postgres |
-| `FINNHUB_API_KEY`   | ✅ | [Finnhub 免费 key](https://finnhub.io/register)，60 req/min |
-| `DEEPSEEK_API_KEY`  | ⚠️ | [DeepSeek key](https://platform.deepseek.com/)，缺省时跳过 AI 摘要 |
-| `CRON_SECRET`       | ✅ | 任意随机字符串，保护 cron 端点 |
+| `LLM_BASE_URL`      | ⚪ | `https://api.openai.com/v1`（兼容 OpenAI 规范的任何端点） |
+| `LLM_API_KEY`       | ⚪ | 大模型 API Key（留空则尝试回退 `DEEPSEEK_API_KEY`，均无时跳过 AI 摘要） |
+| `LLM_MODEL`         | ⚪ | `gpt-4o-mini` 或 `deepseek-chat` 等 |
+| `DEEPSEEK_API_KEY`  | ⚪ | 兼容旧版配置（若未配 `LLM_API_KEY`，自动映射为 DeepSeek） |
+| `ENABLED_NEWS_SOURCES` | ⚪ | 启用的资讯源列表，逗号分隔（`googlenews,yahoo,finnhub,eastmoney,cls,sina`） |
+| `FINNHUB_API_KEY`   | ⚪ | [Finnhub 免费 key](https://finnhub.io/register)，用于美股行情与新闻 |
+| `HERMES_API_KEY`    | ⚪ | Hermes Agent REST 接口鉴权密钥（未配置时本地开发放行） |
+| `CRON_SECRET`       | ✅ | 任意随机字符串，保护 cron 定时调度端点 |
 
 > ⚠️ **不要把 `.env.local` 提交到 git** — 已通过 `.gitignore` 屏蔽。
 
@@ -161,21 +171,28 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 
 > 💡 **白嫖小贴士**：Vercel Hobby 限制每日只能有一次 Cron 触发、`pg` 连接数上限为 1、函数执行时长 10 秒。本项目默认 `BATCH_SIZE=2`、`pg pool max=1`，并在用户访问时通过懒刷新（超过 65 分钟未更新自动补刷）弥补单次 Cron 的覆盖不足。API 响应已加 `Cache-Control: s-maxage=300` 降低数据库压力。如需更高频率的 Cron，升级至 Pro 套餐即可。
 
-### 📝 自定义自选股
+### 📝 自选股动态管理 (Web UI & API)
 
-编辑 `lib/stocks.ts`：
+系统现已由数据库全面驱动自选股监控池：
+1. **页面可视化管理**：点击主页导航栏右侧的「⚙️ 管理自选」，可在弹窗中即时添加新标的（支持美股、港股、A股、指数）、切换监控开关、删除标的。
+2. **REST API 管理**：
+   - `GET /api/stocks`：获取自选股（支持 `?all=true` 及 `?market=CN` 过滤）。
+   - `POST /api/stocks`：添加自选股。
+   - `PATCH /api/stocks/[id]`：启停或重命名标的。
+   - `DELETE /api/stocks/[id]`：移除自选股。
+3. **种子预置机制**：首次启动若数据库为空，会自动加载 `lib/stocks.ts` 中的预置股票池进行初始化（开箱即用）。
 
-```ts
-export const TRACKED_STOCKS: StockData[] = [
-  { symbol: "AAPL", name: "Apple", nameCn: "苹果", market: "US" },
-  // 👇 加你自己的
-  { symbol: "META", name: "Meta", nameCn: "Meta", market: "US" },
-  { symbol: "0388.HK", name: "HKEX", nameCn: "香港交易所", market: "HK" },
-];
-```
+### 🤖 Hermes 开放 API 与 Agent 集成
 
-- `symbol` 用各源能识别的格式：A 股 `xxxxxx.SS` / `xxxxxx.SZ`，港股 `xxxx.HK`，指数 `^GSPC` / `^IXIC` 等。
-- 改完保存即可，下次 cron / 懒刷新会自动建表更新。
+面向自动化智能体（如 Hermes、投研 Agent）提供开放接口：
+- **认证**：通过 HTTP 请求头 `Authorization: Bearer <HERMES_API_KEY>` 校验。
+- **接口文档**：详见 [`docs/hermes-api.md`](docs/hermes-api.md)。
+- **Tool 契约**：工具声明定义文件位于 [`hermes-tool.json`](hermes-tool.json)，可直接导入 Agent 框架。
+- **端点清单**：
+  - `GET /api/v1/hermes/news`：结构化聚合新闻与 AI 事实摘要
+  - `GET /api/v1/hermes/stocks`：自选监控池与实时行情快照
+  - `POST /api/v1/hermes/stocks`：动态添加标的
+  - `POST /api/v1/hermes/trigger-fetch`：按需触发增量抓取与分析
 
 ### 🔐 关于安全
 
@@ -221,13 +238,14 @@ The product goal is simple: **let a regular retail investor understand, in under
 ### 🎯 Features
 
 - **🌍 Multi-market coverage** — US (AAPL/NVDA/TSLA/BRK.B/MU/INTC/ASML/TSM/PLTR), A-share (Moutai, Chengde Lolo), HK (Tencent, Pop Mart), plus S&P 500 / NASDAQ / CSI 300 indices.
-- **📰 Three-source fetching** — Finnhub, Google News RSS, and Yahoo Finance run in parallel for max coverage and cross-verification.
-- **🌐 Bilingual news for CN/HK** — Google News is queried in both English and Chinese (`zh-CN`) for Hong Kong and A-share stocks, surfacing domestic Chinese-language coverage that English-only queries miss. Results are URL-deduplicated before processing.
+- **📰 Multi-source parallel fetching** — Finnhub, Google News RSS, and Yahoo Finance, plus domestic Chinese adapters **EastMoney**, **CLS (Cailian)**, and **Sina Finance**, maximizing coverage with switchable source controls.
+- **🌐 Bilingual news for CN/HK** — Google News is queried in both English and Chinese (`zh-CN`) alongside domestic Chinese financial news adapters, surfacing high-value domestic coverage.
 - **🔗 Cross-source verification** — Stories reported by two or more independent sources get a ✅ Verified badge; a single-tap filter narrows the feed to verified only.
-- **🤖 AI relevance filter** — DeepSeek removes ticker-collision noise, generic market chatter, and off-topic industry articles for all markets (US, HK, CN) before they hit your feed.
-- **🧠 AI Chinese summaries** — DeepSeek produces a 1–2 sentence Chinese summary plus key bullet points for every market, not just US stocks.
-- **🔄 Smart refresh** — A Vercel Cron runs a full refresh daily at 00:00 UTC. A lazy refresh also fires on page load if data is older than 65 minutes, ensuring freshness between cron windows.
-- **📊 Watchlist snapshot** — Live price, day change %, and latest headline at a glance.
+- **🤖 Universal OpenAI-compatible LLM** — Drop-in support for any OpenAI-compatible LLM endpoint (OpenAI, DeepSeek, Ollama, OneAPI, Qwen, Claude proxy, etc.) configured via environment variables.
+- **🧠 AI relevance filter & Chinese summaries** — LLM removes ticker-collision noise, generic chatter, and generates 1–2 sentence Chinese summaries with bullet-point facts, featuring exponential backoff retries and think-tag stripping.
+- **📊 Dynamic watchlist management** — Database-driven tracking pool with `/api/stocks` CRUD APIs and an intuitive modal UI to add, toggle, and remove tickers on the fly.
+- **🤖 Hermes Agent REST API** — Dedicated `/api/v1/hermes/*` endpoints secured via Bearer Token auth, accompanied by `docs/hermes-api.md` and standard `hermes-tool.json` Agent tool definitions.
+- **🔄 Smart refresh** — A Vercel Cron runs daily at 00:00 UTC, complemented by lazy background refreshes (if older than 65 minutes).
 - **🌙 Dark-first UI** — Tailwind v4, mobile-friendly.
 
 ### 🏗️ Architecture
@@ -258,22 +276,26 @@ The product goal is simple: **let a regular retail investor understand, in under
                   (en-US + zh-CN)
 ```
 
-**Key directories**
+**Key directories & files**
 
 | Path | Purpose |
 |------|---------|
 | `app/`                       | Next.js App Router pages + API routes |
 | `app/api/news/route.ts`       | News list API (with lazy refresh) |
 | `app/api/market/route.ts`     | Watchlist snapshot API |
+| `app/api/stocks/route.ts`     | Watchlist CRUD API (market filters, toggle active) |
+| `app/api/v1/hermes/`          | Hermes Agent dedicated REST API (news / stocks / trigger-fetch) |
 | `app/api/cron/fetch-news/`    | Vercel Cron entry (Bearer auth) |
-| `lib/sources/`                | Source adapters (finnhub / googlenews / yahoo) |
+| `lib/llm/client.ts`           | Universal OpenAI-compatible LLM client (retries, timeouts, parsing) |
+| `lib/sources/`                | Source adapters (finnhub / googlenews / yahoo / eastmoney / cls / sina) |
 | `lib/pipeline/fetch-all.ts`   | Fetch → cluster → persist orchestration |
 | `lib/pipeline/dedup.ts`       | Bag-of-words Jaccard title similarity |
-| `lib/pipeline/summarize.ts`   | DeepSeek relevance filter + Chinese summary |
-| `lib/market.ts`               | Real-time price (Finnhub with Yahoo v8 fallback) |
-| `lib/stocks.ts`               | Watchlist definition (edit here) |
-| `components/`                 | NewsCard / NewsFeed / TickerStrip / MarketOverview / FilterBar |
-| `prisma/schema.prisma`        | Database models |
+| `lib/pipeline/summarize.ts`   | LLM relevance filter + Chinese bullet-point summary |
+| `lib/stocks-seed.ts`          | Watchlist auto-seeding mechanism |
+| `components/StockManagerModal.tsx` | Front-end watchlist manager modal component |
+| `docs/hermes-api.md`          | Hermes API integration & developer guide |
+| `hermes-tool.json`            | Hermes / Agent Tool schema definition |
+| `prisma/schema.prisma`        | Database models (Stock / Article / NewsCluster / ClusterArticle) |
 
 ### 🚀 Getting Started
 
@@ -293,14 +315,19 @@ Copy the template and fill in your own values:
 cp .env.example .env.local
 ```
 
-Open `.env.local` and fill in the four variables:
+Open `.env.local` and configure your environment variables:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL`      | ✅ | Postgres connection string. Local Docker, Neon, or Vercel Postgres all work. |
-| `FINNHUB_API_KEY`   | ✅ | Free key from [Finnhub](https://finnhub.io/register) — 60 req/min. |
-| `DEEPSEEK_API_KEY`  | ⚠️ | Key from [DeepSeek](https://platform.deepseek.com/); AI summaries are skipped if absent. |
-| `CRON_SECRET`       | ✅ | Any random string; protects the cron endpoint. |
+| Variable | Required | Default / Description |
+|----------|----------|-----------------------|
+| `DATABASE_URL`      | ✅ | Postgres connection string (Docker, Neon, or Vercel Postgres) |
+| `LLM_BASE_URL`      | ⚪ | `https://api.openai.com/v1` (Any OpenAI-compatible base URL) |
+| `LLM_API_KEY`       | ⚪ | Universal LLM API key (falls back to `DEEPSEEK_API_KEY`) |
+| `LLM_MODEL`         | ⚪ | Model ID (e.g. `gpt-4o-mini`, `deepseek-chat`) |
+| `DEEPSEEK_API_KEY`  | ⚪ | Legacy fallback key for DeepSeek |
+| `ENABLED_NEWS_SOURCES` | ⚪ | Comma-separated list (`googlenews,yahoo,finnhub,eastmoney,cls,sina`) |
+| `FINNHUB_API_KEY`   | ⚪ | Free key from [Finnhub](https://finnhub.io/register) |
+| `HERMES_API_KEY`    | ⚪ | Bearer token secret for Hermes Agent REST API |
+| `CRON_SECRET`       | ✅ | Any random string protecting the cron endpoint |
 
 > ⚠️ **Never commit `.env.local`** — it's already in `.gitignore`.
 
@@ -348,21 +375,28 @@ Loop `batch` from 0 to N-1 to cover the full watchlist (small batches keep each 
 
 > 💡 **Free-tier tips**: Vercel Hobby allows only one cron trigger per day and caps `pg` connections at 1 and function duration at 10s. The repo defaults to `BATCH_SIZE=2`, `pg pool max=1`. A 65-minute lazy-refresh fallback fires on page load to supplement the daily cron. API responses carry `Cache-Control: s-maxage=300` to reduce database load. Upgrade to Pro to unlock higher-frequency cron schedules.
 
-### 📝 Customizing the watchlist
+### 📝 Dynamic Watchlist Management (Web UI & API)
 
-Edit `lib/stocks.ts`:
+The stock tracking pool is now completely database-driven:
+1. **Interactive Web UI**: Click the **"⚙️ 管理自选" (Manage Watchlist)** button in the top navigation bar to open the management modal. You can add new symbols (US, HK, A-shares, indices), toggle active monitoring status, or delete custom tickers in real time.
+2. **REST API Management**:
+   - `GET /api/stocks`: Retrieve tracked stocks (supports `?all=true` and `?market=CN` filtering).
+   - `POST /api/stocks`: Add a new tracked stock with deduplication checks.
+   - `PATCH /api/stocks/[id]`: Toggle active status or update names.
+   - `DELETE /api/stocks/[id]`: Remove a tracked stock and cascade cleanups.
+3. **Auto-seeding**: On first run or empty database, default blue chips and indices from `lib/stocks.ts` are automatically seeded.
 
-```ts
-export const TRACKED_STOCKS: StockData[] = [
-  { symbol: "AAPL", name: "Apple", nameCn: "苹果", market: "US" },
-  // 👇 add your own
-  { symbol: "META", name: "Meta", nameCn: "Meta", market: "US" },
-  { symbol: "0388.HK", name: "HKEX", nameCn: "香港交易所", market: "HK" },
-];
-```
+### 🤖 Hermes Open REST API & Agent Integration
 
-- `symbol` follows source conventions: A-shares `xxxxxx.SS` / `xxxxxx.SZ`, HK `xxxx.HK`, indices `^GSPC` / `^IXIC`, etc.
-- Save the file — the next cron or lazy refresh will upsert the row automatically.
+Dedicated high-performance API for autonomous financial agents (such as Hermes):
+- **Authentication**: Validated via HTTP Header `Authorization: Bearer <HERMES_API_KEY>`.
+- **API Documentation**: Detailed guide at [`docs/hermes-api.md`](docs/hermes-api.md).
+- **Tool Schema**: OpenAPI / Hermes Agent tool definitions provided in [`hermes-tool.json`](hermes-tool.json).
+- **Endpoints**:
+  - `GET /api/v1/hermes/news`: Clustered financial news with AI summaries & cross-verification badges.
+  - `GET /api/v1/hermes/stocks`: Monitored stock pool with real-time price & latest headlines.
+  - `POST /api/v1/hermes/stocks`: Dynamically add or reactivate monitored tickers.
+  - `POST /api/v1/hermes/trigger-fetch`: Trigger immediate on-demand news fetching and AI analysis.
 
 ### 🔐 Security notes
 

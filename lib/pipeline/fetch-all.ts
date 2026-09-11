@@ -1,11 +1,9 @@
 import { prisma } from "../db";
-import { TRACKED_STOCKS } from "../stocks";
-import { fetchFinnhubNews } from "../sources/finnhub";
-import { fetchGoogleNews } from "../sources/googlenews";
-import { fetchYahooNews } from "../sources/yahoo";
+import { getActiveAdapters } from "../sources";
 import { RawArticle } from "../sources/types";
 import { groupSimilarArticles } from "./dedup";
 import { summarizeArticles, filterRelevantArticles } from "./summarize";
+import { seedInitialStocks } from "../stocks-seed";
 
 const BATCH_SIZE = 2;
 
@@ -20,39 +18,45 @@ export async function fetchAndProcessNewsBatch(
 }> {
   const errors: string[] = [];
   const allRawArticles: RawArticle[] = [];
-  const batchesTotal = Math.ceil(TRACKED_STOCKS.length / BATCH_SIZE);
 
+  // Ensure initial stocks seeded if empty
+  await seedInitialStocks();
+
+  // Retrieve active stocks from database
+  const activeStocks = await prisma.stock.findMany({
+    where: { isActive: true },
+    orderBy: { id: "asc" },
+  });
+
+  const batchesTotal = Math.max(1, Math.ceil(activeStocks.length / BATCH_SIZE));
   const start = batch * BATCH_SIZE;
-  const batchStocks = TRACKED_STOCKS.slice(start, start + BATCH_SIZE);
+  const batchStocks = activeStocks.slice(start, start + BATCH_SIZE);
 
   if (batchStocks.length === 0) {
-    return { articlesFetched: 0, clustersCreated: 0, batchesTotal, errors: ["Invalid batch"] };
+    return { articlesFetched: 0, clustersCreated: 0, batchesTotal, errors: ["Invalid batch or no active stocks"] };
   }
 
   for (const stock of batchStocks) {
-    const dbStock = await prisma.stock.upsert({
-      where: { symbol: stock.symbol },
-      update: {},
-      create: {
-        symbol: stock.symbol,
-        name: stock.name,
-        nameCn: stock.nameCn,
-        market: stock.market,
-      },
-    });
-
-    const fetchers = [fetchFinnhubNews, fetchGoogleNews, fetchYahooNews];
+    const adapters = getActiveAdapters(stock.market);
     const results = await Promise.allSettled(
-      fetchers.map((fn) =>
-        fn({ symbol: stock.symbol, name: stock.name, nameCn: stock.nameCn, market: stock.market, stockId: dbStock.id })
+      adapters.map((adapter) =>
+        adapter.fetch({
+          symbol: stock.symbol,
+          name: stock.name,
+          nameCn: stock.nameCn,
+          market: stock.market,
+          stockId: stock.id,
+        })
       )
     );
 
-    for (const result of results) {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const adapter = adapters[i];
       if (result.status === "fulfilled") {
         allRawArticles.push(...result.value);
       } else {
-        errors.push(`Fetch error for ${stock.symbol}: ${result.reason}`);
+        errors.push(`Fetch error for ${stock.symbol} via ${adapter.id}: ${result.reason}`);
       }
     }
   }
@@ -150,11 +154,15 @@ export async function fetchAndProcessAllNews(): Promise<{
   clustersCreated: number;
   errors: string[];
 }> {
+  await seedInitialStocks();
+  const activeCount = await prisma.stock.count({ where: { isActive: true } });
+  const batchesTotal = Math.max(1, Math.ceil(activeCount / BATCH_SIZE));
+
   let totalArticles = 0;
   let totalClusters = 0;
   const allErrors: string[] = [];
 
-  for (let b = 0; b < Math.ceil(TRACKED_STOCKS.length / BATCH_SIZE); b++) {
+  for (let b = 0; b < batchesTotal; b++) {
     const result = await fetchAndProcessNewsBatch(b);
     totalArticles += result.articlesFetched;
     totalClusters += result.clustersCreated;

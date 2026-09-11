@@ -15,8 +15,14 @@ model Stock {
   price      Float?
   changePct  Float?    @map("change_pct")
   updatedAt  DateTime? @map("updated_at")
+  isActive   Boolean   @default(true) @map("is_active")
+  isCustom   Boolean   @default(false) @map("is_custom")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   articles   Article[]
+
+  @@index([isActive])
+  @@index([market])
 }
 
 model Article {
@@ -73,4 +79,7 @@ enum Source {
   finnhub
   googlenews
   yahoo
+  eastmoney
+  cls
+  sina
 }

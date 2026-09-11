@@ -1,0 +1,95 @@
+{
+  "name": "stock_news_app_hermes_tool",
+  "description": "Stock news and financial market aggregator with AI analysis, structured summaries, and custom tracked stock management.",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "get_stock_news",
+      "description": "Retrieve clustered financial news, AI factual summaries, and key points for monitored stocks or markets.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Stock ticker symbol (e.g. AAPL, NVDA, 600519.SS, 0700.HK)"
+          },
+          "market": {
+            "type": "string",
+            "enum": ["US", "HK", "CN", "INDEX"],
+            "description": "Financial market category"
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "If true, returns only news cross-verified by multiple independent sources"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of news clusters to return (1-100, default 20)"
+          },
+          "days": {
+            "type": "integer",
+            "description": "Retrieve news within the last N days (default 3)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_tracked_stocks",
+      "description": "Get current list of tracked stocks, markets, real-time prices, and latest headline summaries.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "activeOnly": {
+            "type": "boolean",
+            "description": "Filter by active monitoring status (default true)"
+          },
+          "market": {
+            "type": "string",
+            "enum": ["US", "HK", "CN", "INDEX"],
+            "description": "Filter by specific market"
+          }
+        }
+      }
+    },
+    {
+      "name": "add_tracked_stock",
+      "description": "Add or re-activate a custom stock in the tracking pool.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Stock symbol (e.g. BABA, 300750.SZ)"
+          },
+          "nameCn": {
+            "type": "string",
+            "description": "Chinese name or abbreviation (e.g. 宁德时代)"
+          },
+          "name": {
+            "type": "string",
+            "description": "English name or full name (optional)"
+          },
+          "market": {
+            "type": "string",
+            "enum": ["US", "HK", "CN", "INDEX"],
+            "description": "Market"
+          }
+        },
+        "required": ["symbol", "nameCn", "market"]
+      }
+    },
+    {
+      "name": "trigger_news_fetch",
+      "description": "Trigger an immediate news fetch and clustering batch run.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "skipAi": {
+            "type": "boolean",
+            "description": "Skip AI summarization for faster ingestion"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { RawArticle, NewsFetcher } from "./types";
+import { NewsFetcher } from "./types";
 
 export const fetchYahooNews: NewsFetcher = async ({ symbol, stockId }) => {
   try {

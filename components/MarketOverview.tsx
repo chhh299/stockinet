@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 
 interface StockSnapshot {
   symbol: string;
@@ -12,24 +12,35 @@ interface StockSnapshot {
   latestHeadline: string | null;
 }
 
-export function MarketOverview() {
+export interface MarketOverviewHandle {
+  refresh: () => Promise<void>;
+}
+
+export const MarketOverview = forwardRef<MarketOverviewHandle>((_props, ref) => {
   const [stocks, setStocks] = useState<StockSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/market");
-        const data = await res.json();
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/market");
+      const data = await res.json();
+      if (Array.isArray(data)) {
         setStocks(data);
-      } catch {} finally {
-        setLoading(false);
       }
+    } catch {} finally {
+      setLoading(false);
     }
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    refresh: load,
+  }));
+
+  useEffect(() => {
     load();
     const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [load]);
 
   if (loading) {
     return (
@@ -91,7 +102,9 @@ export function MarketOverview() {
       </table>
     </div>
   );
-}
+});
+
+MarketOverview.displayName = "MarketOverview";
 
 function marketLabel(market: string): string {
   switch (market) {

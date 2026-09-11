@@ -7,6 +7,7 @@
     "build": "npx prisma db push --accept-data-loss; next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "npx tsx --test tests/summarize.test.ts tests/hermes-auth.test.ts tests/llm-client.test.ts tests/sources.test.ts tests/pipeline-resilience.test.ts tests/stocks-api.test.ts tests/hermes-api.test.ts",
     "postinstall": "prisma generate",
     "db:push": "npx prisma db push --accept-data-loss"
   },

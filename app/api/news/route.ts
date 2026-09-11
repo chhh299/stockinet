@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { fetchAndProcessNewsBatch } from "@/lib/pipeline/fetch-all";
+import { seedInitialStocks } from "@/lib/stocks-seed";
 
 const STALE_MINUTES = 65;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const market = searchParams.get("market");
+  const symbol = searchParams.get("symbol");
   const verifiedOnly = searchParams.get("verified") === "true";
   const cursor = searchParams.get("cursor");
-  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
 
   try {
+    await seedInitialStocks();
+
     const latestCluster = await prisma.newsCluster.findFirst({
       orderBy: { publishedAt: "desc" },
       select: { publishedAt: true },
@@ -37,7 +41,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (cursor) {
-      where.id = { lt: parseInt(cursor) };
+      where.id = { lt: parseInt(cursor, 10) };
+    }
+
+    if (symbol) {
+      where.articles = {
+        some: {
+          article: {
+            stock: { symbol: symbol.toUpperCase() },
+          },
+        },
+      };
     }
 
     const clusters = await prisma.newsCluster.findMany({
@@ -63,7 +77,7 @@ export async function GET(request: NextRequest) {
     });
 
     let filtered = clusters;
-    if (market) {
+    if (market && market !== "ALL") {
       const stocks = await prisma.stock.findMany({
         where: { market: market as "US" | "HK" | "CN" | "INDEX" },
         select: { id: true },

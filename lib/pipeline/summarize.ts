@@ -1,6 +1,6 @@
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+import { callLlmChat, extractJsonArray, extractJsonObject, resolveLlmConfig } from "../llm/client";
 
-interface SummaryResult {
+export interface SummaryResult {
   summary: string;
   keyPoints: string[];
 }
@@ -12,8 +12,8 @@ export async function filterRelevantArticles(
   symbol: string,
   articles: { title: string; snippet: string }[]
 ): Promise<number[]> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey || articles.length === 0) return articles.map((_, i) => i);
+  const config = resolveLlmConfig();
+  if (!config.apiKey || articles.length === 0) return articles.map((_, i) => i);
 
   const articleList = articles
     .map((a, i) => `${i}. ${a.title} — ${(a.snippet || "").slice(0, 200)}`)
@@ -32,12 +32,12 @@ Articles:
 ${articleList}`;
 
   try {
-    const text = await callDeepSeek(prompt, 300);
-    if (!text) return [];
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    const indices: number[] = JSON.parse(match[0]);
-    return indices.filter((i) => i >= 0 && i < articles.length);
+    const text = await callLlmChat(prompt, { maxTokens: 300 });
+    if (!text) return articles.map((_, i) => i);
+    const indices = extractJsonArray<number>(text);
+    if (!indices) return articles.map((_, i) => i);
+    const filtered = indices.filter((i) => typeof i === "number" && i >= 0 && i < articles.length);
+    return filtered.length > 0 ? filtered : articles.map((_, i) => i);
   } catch {
     // On failure, keep all articles
     return articles.map((_, i) => i);
@@ -51,8 +51,8 @@ export async function summarizeArticles(
   symbol: string,
   titles: string[]
 ): Promise<SummaryResult | null> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey || titles.length === 0) return null;
+  const config = resolveLlmConfig();
+  if (!config.apiKey || titles.length === 0) return null;
 
   const titleList = titles.map((t, i) => `${i + 1}. ${t}`).join("\n");
 
@@ -74,13 +74,12 @@ Headlines:
 ${titleList}`;
 
   try {
-    const text = await callDeepSeek(prompt, 600);
+    const text = await callLlmChat(prompt, { maxTokens: 600 });
     if (!text) return null;
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    const parsed = extractJsonObject<{ summary?: string; keyPoints?: string[] }>(text);
+    if (!parsed) return null;
 
-    const parsed = JSON.parse(jsonMatch[0]);
     return {
       summary: parsed.summary || "",
       keyPoints: Array.isArray(parsed.keyPoints) ? parsed.keyPoints.slice(0, 3) : [],
@@ -88,52 +87,4 @@ ${titleList}`;
   } catch {
     return null;
   }
-}
-
-// ---- Shared helper ----
-
-async function callDeepSeek(prompt: string, maxTokens: number, retries = 3): Promise<string | null> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return null;
-
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const res = await fetch(DEEPSEEK_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: maxTokens,
-          temperature: 0.2,
-        }),
-      });
-
-      if (res.ok) {
-        const data: DeepSeekResponse = await res.json();
-        return data.choices?.[0]?.message?.content?.trim() || null;
-      }
-
-      if (res.status === 429 && attempt < retries - 1) {
-        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
-        continue;
-      }
-
-      return null;
-    } catch {
-      if (attempt < retries - 1) {
-        await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
-        continue;
-      }
-      return null;
-    }
-  }
-  return null;
-}
-
-interface DeepSeekResponse {
-  choices?: { message?: { content?: string } }[];
 }

@@ -1,4 +1,4 @@
-import { RawArticle, NewsFetcher } from "./types";
+import { NewsFetcher } from "./types";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 const API_KEY = process.env.FINNHUB_API_KEY!;

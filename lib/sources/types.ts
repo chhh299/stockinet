@@ -1,4 +1,10 @@
-export type SourceType = "finnhub" | "googlenews" | "yahoo";
+export type SourceType =
+  | "finnhub"
+  | "googlenews"
+  | "yahoo"
+  | "eastmoney"
+  | "cls"
+  | "sina";
 
 export interface RawArticle {
   title: string;
@@ -13,8 +19,18 @@ export interface FetchNewsParams {
   symbol: string;
   name: string;
   nameCn: string;
-  market: string;
+  market: "US" | "HK" | "CN" | "INDEX" | string;
   stockId: number;
 }
 
 export type NewsFetcher = (params: FetchNewsParams) => Promise<RawArticle[]>;
+
+export interface SourceAdapter {
+  id: SourceType;
+  name: string;
+  /**
+   * Check if adapter supports the specific market
+   */
+  supportsMarket(market: string): boolean;
+  fetch: NewsFetcher;
+}

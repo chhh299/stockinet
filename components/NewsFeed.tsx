@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { NewsCard } from "./NewsCard";
 import { FilterBar, MarketFilter } from "./FilterBar";
 
@@ -16,7 +16,11 @@ interface NewsItem {
   sources: { title: string; url: string; source: string; publishedAt: string }[];
 }
 
-export function NewsFeed() {
+export interface NewsFeedHandle {
+  refresh: () => Promise<void>;
+}
+
+export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [market, setMarket] = useState<MarketFilter>("ALL");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -38,6 +42,10 @@ export function NewsFeed() {
       setLoading(false);
     }
   }, [market, verifiedOnly]);
+
+  useImperativeHandle(ref, () => ({
+    refresh: fetchNews,
+  }));
 
   useEffect(() => {
     fetchNews();
@@ -70,4 +78,6 @@ export function NewsFeed() {
       )}
     </div>
   );
-}
+});
+
+NewsFeed.displayName = "NewsFeed";
