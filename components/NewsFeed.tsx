@@ -25,9 +25,19 @@ export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
   const [market, setMarket] = useState<MarketFilter>("ALL");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchNews = useCallback(async () => {
+  const fetchNews = useCallback(async (triggerFetch = false) => {
     try {
+      if (triggerFetch) setRefreshing(true);
+      setErrorMsg(null);
+
+      if (triggerFetch) {
+        // 主动触发一次增量抓取
+        await fetch("/api/v1/hermes/trigger-fetch", { method: "POST" }).catch(() => null);
+      }
+
       const params = new URLSearchParams();
       if (market !== "ALL") params.set("market", market);
       if (verifiedOnly) params.set("verified", "true");
@@ -35,21 +45,26 @@ export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
 
       const res = await fetch(`/api/news?${params.toString()}`);
       const data = await res.json();
-      setItems(data.items || []);
-    } catch {
-      // silently fail
+      if (data.error) {
+        setErrorMsg(data.error);
+      } else {
+        setItems(data.items || []);
+      }
+    } catch (err) {
+      setErrorMsg(String(err));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [market, verifiedOnly]);
 
   useImperativeHandle(ref, () => ({
-    refresh: fetchNews,
+    refresh: () => fetchNews(false),
   }));
 
   useEffect(() => {
     fetchNews();
-    const interval = setInterval(fetchNews, 300000);
+    const interval = setInterval(() => fetchNews(false), 300000);
     return () => clearInterval(interval);
   }, [fetchNews]);
 
@@ -65,9 +80,27 @@ export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
         <div className="flex items-center justify-center py-20 text-text-secondary text-sm">
           加载中...
         </div>
+      ) : errorMsg ? (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 my-6 text-center text-sm text-red-400">
+          <p className="font-semibold mb-1">数据库或数据获取异常：</p>
+          <p className="text-xs text-red-400/80 mb-3">{errorMsg}</p>
+          <button
+            onClick={() => fetchNews(true)}
+            className="px-3 py-1.5 bg-accent hover:bg-accent/80 text-background rounded text-xs font-medium cursor-pointer transition-colors"
+          >
+            重试抓取
+          </button>
+        </div>
       ) : items.length === 0 ? (
-        <div className="flex items-center justify-center py-20 text-text-secondary text-sm">
-          暂无新闻
+        <div className="flex flex-col items-center justify-center py-20 text-text-secondary text-sm">
+          <p className="mb-3">暂无新闻数据（新初始化数据库尚无新闻聚簇）</p>
+          <button
+            onClick={() => fetchNews(true)}
+            disabled={refreshing}
+            className="px-4 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 text-background rounded-lg text-xs font-semibold cursor-pointer transition-colors flex items-center gap-2"
+          >
+            {refreshing ? "正在抓取全网资讯中，请稍候..." : "⚡ 立即抓取最新资讯"}
+          </button>
         </div>
       ) : (
         <div className="mt-4 space-y-3">
