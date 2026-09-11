@@ -93,30 +93,78 @@ export async function GET(request: NextRequest) {
     );
   });
 
-  // 2. 如果输入的是 6 位纯数字，智能判断 A 股市场（6 开头为沪市 .SS，0 或 3 开头为深市 .SZ）
+  // 2. 实时调用东方财富官方证券代码联想接口 (支持全市场 5000+ A股/港股/ETF 毫秒级真实名称查询)
+  try {
+    const emSuggestUrl = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(
+      q
+    )}&type=14`;
+    const res = await fetch(emSuggestUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const items = data?.QuotationCodeTable?.Data || [];
+      for (const item of items) {
+        const code = item.Code;
+        const name = item.Name;
+        const classify = item.Classify;
+        const securityTypeName = item.SecurityTypeName || "";
+
+        let symbol = code;
+        let market: "US" | "HK" | "CN" | "INDEX" = "CN";
+
+        if (classify === "AStock" || securityTypeName.includes("A")) {
+          market = "CN";
+          const isSh = code.startsWith("6") || code.startsWith("688");
+          symbol = `${code}.${isSh ? "SS" : "SZ"}`;
+        } else if (classify === "HKStock" || securityTypeName.includes("港")) {
+          market = "HK";
+          symbol = `${code.padStart(4, "0")}.HK`;
+        } else if (classify === "Index" || securityTypeName.includes("指")) {
+          market = "INDEX";
+          const isSh = code.startsWith("000");
+          symbol = `${code}.${isSh ? "SS" : "SZ"}`;
+        }
+
+        if (!matches.some((m) => m.symbol === symbol)) {
+          matches.push({
+            symbol,
+            nameCn: name,
+            name: `${name} (${code})`,
+            market,
+          });
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. 如果输入的是 6 位纯数字，兜底智能判断 A 股市场
   if (/^\d{6}$/.test(q) && !matches.some((m) => m.symbol.startsWith(q))) {
     const isSh = q.startsWith("6");
     const suffix = isSh ? ".SS" : ".SZ";
     matches.unshift({
       symbol: `${q}${suffix}`,
-      nameCn: `A股(${q})`,
+      nameCn: `${q}`,
       name: `A-Share ${q}`,
       market: "CN",
     });
   }
 
-  // 3. 如果输入的是 4 位或 5 位数字，智能判断港股
+  // 4. 如果输入的是 4 位或 5 位数字，智能判断港股
   if (/^\d{4,5}$/.test(q) && !matches.some((m) => m.symbol.startsWith(q))) {
     const padded = q.padStart(4, "0");
     matches.unshift({
       symbol: `${padded}.HK`,
-      nameCn: `港股(${padded})`,
+      nameCn: `${padded}`,
       name: `HK Stock ${padded}`,
       market: "HK",
     });
   }
 
-  // 4. 如果输入的是纯英文字符，智能识别为美股
+  // 5. 如果输入的是纯英文字符，智能识别为美股
   if (/^[A-Z]{1,5}$/.test(query) && !matches.some((m) => m.symbol === query)) {
     matches.unshift({
       symbol: query,
