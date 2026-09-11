@@ -131,6 +131,18 @@ export async function GET(request: NextRequest) {
       )
     ).filter(Boolean);
 
+    const response = NextResponse.json({
+      items: enriched,
+      nextCursor: hasMore ? String(items[items.length - 1]?.id) : null,
+      refreshing: isStale,
+    });
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+    return response;
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
 // DELETE /api/news?all=true (一键清理所有历史新闻缓存与聚簇)
 export async function DELETE(request: NextRequest) {
   try {
