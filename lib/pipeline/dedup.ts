@@ -9,10 +9,12 @@ export interface ArticleGroup {
 export function groupSimilarArticles(allArticles: RawArticle[]): ArticleGroup[] {
   const groups: ArticleGroup[] = [];
   const now = Date.now();
-  const oneDayMs = 24 * 60 * 60 * 1000;
+  // 容纳最近 7 天内的新闻报道与公告（避免周末、节假日无新闻导致全部被清空丢弃）
+  const windowMs = 7 * 24 * 60 * 60 * 1000;
 
   for (const article of allArticles) {
-    if (now - article.publishedAt.getTime() > oneDayMs) continue;
+    const pubTime = article.publishedAt ? article.publishedAt.getTime() : now;
+    if (isNaN(pubTime) || now - pubTime > windowMs) continue;
 
     let matched = false;
 
