@@ -5,6 +5,8 @@ import { fetchYahooNews } from "./yahoo";
 import { EastMoneyAdapter } from "./eastmoney";
 import { ClsAdapter } from "./cls";
 import { SinaAdapter } from "./sina";
+import { ThsAdapter } from "./ths";
+import { ResearchAdapter } from "./research";
 
 export const FinnhubAdapter: SourceAdapter = {
   id: "finnhub",
@@ -40,6 +42,8 @@ export const ALL_ADAPTERS: SourceAdapter[] = [
   EastMoneyAdapter,
   ClsAdapter,
   SinaAdapter,
+  ThsAdapter,
+  ResearchAdapter,
 ];
 
 export function getActiveAdapters(
@@ -74,3 +78,5 @@ export * from "./types";
 export { EastMoneyAdapter } from "./eastmoney";
 export { ClsAdapter } from "./cls";
 export { SinaAdapter } from "./sina";
+export { ThsAdapter } from "./ths";
+export { ResearchAdapter } from "./research";

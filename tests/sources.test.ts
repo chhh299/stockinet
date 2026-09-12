@@ -18,6 +18,8 @@ test("getActiveAdapters returns all adapters matching market when no env is set"
   assert.ok(cnIds.includes("eastmoney"));
   assert.ok(cnIds.includes("cls"));
   assert.ok(cnIds.includes("sina"));
+  assert.ok(cnIds.includes("ths"));
+  assert.ok(cnIds.includes("research"));
   assert.ok(cnIds.includes("googlenews"));
   // Yahoo / Finnhub 不支持 CN (A股纯中文市场)
   assert.equal(cnIds.includes("yahoo"), false);

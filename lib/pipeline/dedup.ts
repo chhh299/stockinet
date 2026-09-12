@@ -6,10 +6,171 @@ export interface ArticleGroup {
   sourceTypes: Set<string>;
 }
 
+// 借鉴自 a-share-research-monitor 的核心金融动作信号词表
+const SIGNAL_TERMS = [
+  "公告",
+  "披露",
+  "发布",
+  "最新",
+  "进展",
+  "回购",
+  "增持",
+  "减持",
+  "定增",
+  "分红",
+  "业绩",
+  "预告",
+  "快报",
+  "年报",
+  "季报",
+  "中报",
+  "合同",
+  "中标",
+  "诉讼",
+  "仲裁",
+  "处罚",
+  "立案",
+  "问询",
+  "澄清",
+  "停牌",
+  "复牌",
+  "重组",
+  "投资",
+  "评级",
+  "买入",
+  "增持",
+];
+
+/**
+ * 文本清洗与标准化
+ */
+function cleanText(text: string): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .replace(/<[^>]+>/g, "")
+    .replace(/[【】\[\]（）()丨|—_·\s\t\r\n]+/g, "")
+    .trim();
+}
+
+/**
+ * 中文字符 2-gram 窗口切分 (中文友好的无字典轻量切分)
+ */
+function charNgrams(text: string, n = 2): Set<string> {
+  const cleaned = cleanText(text);
+  if (cleaned.length <= n) {
+    return cleaned ? new Set([cleaned]) : new Set();
+  }
+  const ngrams = new Set<string>();
+  for (let i = 0; i <= cleaned.length - n; i++) {
+    ngrams.add(cleaned.slice(i, i + n));
+  }
+  return ngrams;
+}
+
+/**
+ * 提取英文/数字 token 与金融信号关键词
+ */
+function extractTokens(text: string): Set<string> {
+  const cleaned = cleanText(text);
+  const tokens = new Set<string>();
+
+  // 匹配英文字母与数字组合 (如 600519, Q1, A股 等)
+  const alphaNums = cleaned.match(/[a-z0-9]+/g) || [];
+  for (const item of alphaNums) {
+    if (item.length >= 2) tokens.add(item);
+  }
+
+  // 匹配金融关键动作词
+  for (const term of SIGNAL_TERMS) {
+    if (cleaned.includes(term)) {
+      tokens.add(term);
+    }
+  }
+
+  return tokens;
+}
+
+/**
+ * Jaccard 集合交并比计算
+ */
+function jaccardSimilarity<T>(setA: Set<T>, setB: Set<T>): number {
+  if (setA.size === 0 || setB.size === 0) return 0.0;
+  let intersectionSize = 0;
+  for (const elem of setA) {
+    if (setB.has(elem)) {
+      intersectionSize++;
+    }
+  }
+  const unionSize = setA.size + setB.size - intersectionSize;
+  return unionSize === 0 ? 0.0 : intersectionSize / unionSize;
+}
+
+/**
+ * 最长公共子序列比率 (Sequence Matcher Ratio)
+ */
+function sequenceSimilarity(a: string, b: string): number {
+  const cleanA = cleanText(a);
+  const cleanB = cleanText(b);
+  if (!cleanA || !cleanB) return 0.0;
+  if (cleanA === cleanB) return 1.0;
+
+  const m = cleanA.length;
+  const n = cleanB.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (cleanA[i - 1] === cleanB[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  const lcs = dp[m][n];
+  return (2.0 * lcs) / (m + n);
+}
+
+/**
+ * 借鉴 a-share-research-monitor 的中文金融混合语义相似度计算
+ */
+export function calculateSemanticSimilarity(left: string, right: string): number {
+  const leftClean = cleanText(left);
+  const rightClean = cleanText(right);
+
+  if (!leftClean || !rightClean) return 0.0;
+  if (leftClean === rightClean) return 1.0;
+
+  // 1. 字符 2-gram 重合度
+  const ngramScore = jaccardSimilarity(charNgrams(leftClean, 2), charNgrams(rightClean, 2));
+
+  // 2. 关键金融信号词与代号重合度
+  const tokenScore = jaccardSimilarity(extractTokens(leftClean), extractTokens(rightClean));
+
+  // 3. 序列结构相似度
+  const seqScore = sequenceSimilarity(leftClean, rightClean);
+
+  // 综合加权评分
+  let score = Math.max(ngramScore, 0.65 * tokenScore + 0.35 * seqScore, seqScore * 0.9);
+
+  // 金融信号强对齐加权：如果字符重合度高且同时包含 2 个相同的核心金融信号词，大幅判定为同主题
+  const sharedSignals = SIGNAL_TERMS.filter((term) => leftClean.includes(term) && rightClean.includes(term));
+  if (ngramScore >= 0.5 && sharedSignals.length >= 2) {
+    score = Math.max(score, 0.82);
+  }
+
+  return score;
+}
+
+/**
+ * 对抓取回来的多源新闻进行多维度语义聚类去重
+ */
 export function groupSimilarArticles(allArticles: RawArticle[]): ArticleGroup[] {
   const groups: ArticleGroup[] = [];
   const now = Date.now();
-  // 容纳最近 7 天内的新闻报道与公告（避免周末、节假日无新闻导致全部被清空丢弃）
+  // 聚类窗口放宽至 7 天，兼容非交易日与周末新闻
   const windowMs = 7 * 24 * 60 * 60 * 1000;
 
   for (const article of allArticles) {
@@ -20,8 +181,10 @@ export function groupSimilarArticles(allArticles: RawArticle[]): ArticleGroup[] 
 
     for (const group of groups) {
       for (const existing of group.articles) {
-        const similarity = titleSimilarity(article.title, existing.title);
-        if (similarity > 0.7) {
+        // 同一股票标的优先聚类；不同标的若是同名宏观事件亦可参与计算
+        const similarity = calculateSemanticSimilarity(article.title, existing.title);
+        // 相似度门限达到 0.65 视为同一事件的多源报道
+        if (similarity >= 0.65) {
           group.articles.push(article);
           group.sourceTypes.add(article.source);
           matched = true;
@@ -40,17 +203,5 @@ export function groupSimilarArticles(allArticles: RawArticle[]): ArticleGroup[] 
     }
   }
 
-  return groups.filter((g) => g.canonicalTitle.length >= 10);
-}
-
-function titleSimilarity(a: string, b: string): number {
-  const wordsA = new Set(a.toLowerCase().split(/\s+/).filter((w) => w.length > 2));
-  const wordsB = new Set(b.toLowerCase().split(/\s+/).filter((w) => w.length > 2));
-
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
-
-  const intersection = new Set([...wordsA].filter((w) => wordsB.has(w)));
-  const union = new Set([...wordsA, ...wordsB]);
-
-  return intersection.size / union.size;
+  return groups.filter((g) => g.canonicalTitle.length >= 4);
 }

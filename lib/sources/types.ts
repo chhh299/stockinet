@@ -4,7 +4,9 @@ export type SourceType =
   | "yahoo"
   | "eastmoney"
   | "cls"
-  | "sina";
+  | "sina"
+  | "ths"
+  | "research";
 
 export interface RawArticle {
   title: string;

@@ -100,6 +100,16 @@ function sourceLabel(source: string): string {
       return "Google News";
     case "yahoo":
       return "Yahoo Finance";
+    case "eastmoney":
+      return "东方财富";
+    case "cls":
+      return "财联社";
+    case "sina":
+      return "新浪财经";
+    case "ths":
+      return "同花顺直播";
+    case "research":
+      return "券商研报";
     default:
       return source;
   }
