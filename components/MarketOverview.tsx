@@ -82,16 +82,18 @@ export const MarketOverview = forwardRef<MarketOverviewHandle>((_props, ref) => 
                 {s.price != null ? s.price.toFixed(2) : "—"}
               </td>
               <td
-                className={`py-2.5 px-3 text-right font-mono tabular-nums ${
+                className={`py-2.5 px-3 text-right font-mono tabular-nums font-medium ${
                   s.changePct != null
-                    ? s.changePct >= 0
-                      ? "text-up"
-                      : "text-down"
+                    ? s.changePct > 0
+                      ? "text-up" // 涨：红色
+                      : s.changePct < 0
+                      ? "text-down" // 跌：绿色
+                      : "text-text-primary" // 平盘：白色
                     : "text-text-secondary"
                 }`}
               >
                 {s.changePct != null
-                  ? `${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(2)}%`
+                  ? `${s.changePct > 0 ? "+" : ""}${s.changePct.toFixed(2)}%`
                   : "—"}
               </td>
               <td className="py-2.5 px-3 text-xs text-text-secondary max-w-[250px] truncate">

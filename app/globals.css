@@ -5,8 +5,9 @@
   --color-surface: #1a1a1a;
   --color-surface-hover: #242424;
   --color-accent: #3b82f6;
-  --color-up: #22c55e;
-  --color-down: #ef4444;
+  /* 中国/亚洲股市标准：红涨绿跌 */
+  --color-up: #ef4444;
+  --color-down: #22c55e;
   --color-border: #2a2a2a;
   --color-text-primary: #f1f5f9;
   --color-text-secondary: #94a3b8;

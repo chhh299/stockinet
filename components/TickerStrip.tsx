@@ -56,11 +56,15 @@ export const TickerStrip = forwardRef<TickerStripHandle>((_props, ref) => {
             </div>
             {s.changePct != null && (
               <span
-                className={`text-xs font-mono tabular-nums font-medium ${
-                  s.changePct >= 0 ? "text-up" : "text-down"
+                className={`text-xs font-mono tabular-nums font-semibold ${
+                  s.changePct > 0
+                    ? "text-up" // 涨：红色
+                    : s.changePct < 0
+                    ? "text-down" // 跌：绿色
+                    : "text-text-primary" // 平盘：白色
                 }`}
               >
-                {s.changePct >= 0 ? "+" : ""}
+                {s.changePct > 0 ? "+" : ""}
                 {s.changePct.toFixed(2)}%
               </span>
             )}
