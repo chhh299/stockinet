@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { seedInitialStocks } from "@/lib/stocks-seed";
+import { fetchLiveQuotes } from "@/lib/market";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ export async function GET() {
       },
     });
 
+    // 实时拉取最新行情 (覆盖 A 股、港股、美股)，彻底解决价格显示为 - 的问题
+    const symbols = stocks.map((s) => s.symbol);
+    const liveQuotes = await fetchLiveQuotes(symbols);
+
     const latestHeadlines = await Promise.all(
       stocks.map(async (s) => {
         const latestCluster = await prisma.newsCluster.findFirst({
@@ -40,10 +45,15 @@ export async function GET() {
     const headlinesMap = new Map(latestHeadlines.map((h) => [h.symbol, h.headline]));
 
     const response = NextResponse.json(
-      stocks.map((s) => ({
-        ...s,
-        latestHeadline: headlinesMap.get(s.symbol) || null,
-      }))
+      stocks.map((s) => {
+        const live = liveQuotes.get(s.symbol);
+        return {
+          ...s,
+          price: live?.price ?? s.price,
+          changePct: live?.changePct ?? s.changePct,
+          latestHeadline: headlinesMap.get(s.symbol) || null,
+        };
+      })
     );
     response.headers.set("Cache-Control", "no-store, max-age=0");
     return response;

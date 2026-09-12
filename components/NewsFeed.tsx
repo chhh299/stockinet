@@ -91,18 +91,6 @@ export const NewsFeed = forwardRef<NewsFeedHandle>((_props, ref) => {
           />
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={async () => {
-                if (confirm("确定要清空数据库中的所有历史新闻缓存吗？")) {
-                  await fetch("/api/news?all=true", { method: "DELETE" });
-                  fetchNews(true);
-                }
-              }}
-              className="px-2.5 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-text-secondary hover:text-red-400 text-xs font-medium cursor-pointer transition-colors"
-              title="一键清除由于之前抓取错误留存的历史无用新闻"
-            >
-              🗑️ 清空历史
-            </button>
-            <button
               onClick={() => fetchNews(true)}
               disabled={refreshing}
               className="px-3 py-1.5 rounded-lg border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5"
