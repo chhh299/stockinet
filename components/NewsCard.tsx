@@ -33,12 +33,15 @@ export function NewsCard({
   const isVerified = verificationStatus === "verified";
   const timeAgo = formatDistanceToNow(new Date(publishedAt));
 
+  const primaryUrl = sources[0]?.url;
+
   return (
-    <article className="bg-surface rounded-lg border border-border p-4 hover:border-accent/30 transition-colors">
+    <article className="bg-surface rounded-lg border border-border p-4 hover:border-accent/40 transition-colors group">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         {stock && (
-          <span className="text-xs px-2 py-0.5 rounded bg-accent/15 text-accent font-medium">
-            {stock.symbol}
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-accent/15 text-accent font-medium flex items-center gap-1">
+            <span>{stock.nameCn}</span>
+            <span className="text-[11px] opacity-80 font-mono">({stock.symbol})</span>
           </span>
         )}
         <span
@@ -55,7 +58,23 @@ export function NewsCard({
         <span className="text-xs text-text-secondary ml-auto">{timeAgo}</span>
       </div>
 
-      <h3 className="text-sm font-medium mb-2 leading-relaxed">{title}</h3>
+      {/* 标题支持直接点击查看原文 */}
+      <h3 className="text-sm font-semibold mb-2 leading-relaxed">
+        {primaryUrl ? (
+          <a
+            href={primaryUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-accent hover:underline transition-colors inline-flex items-center gap-1.5"
+            title="点击在新窗口打开原始报道"
+          >
+            <span>{title}</span>
+            <span className="text-xs opacity-60 text-accent group-hover:opacity-100">↗</span>
+          </a>
+        ) : (
+          <span>{title}</span>
+        )}
+      </h3>
 
       {aiSummary && (
         <p className="text-sm text-text-secondary mb-3 leading-relaxed">
@@ -74,19 +93,36 @@ export function NewsCard({
         </ul>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap text-xs text-text-secondary">
-        <span className="shrink-0">来源：</span>
-        {sources.map((s, i) => (
+      {/* 底部来源与直达跳转 */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs text-text-secondary">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="shrink-0 text-text-secondary/70">信源：</span>
+          {sources.map((s, i) => (
+            <a
+              key={i}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-surface-hover/80 hover:bg-accent/15 text-accent font-medium transition-colors"
+              title="点击在新窗口直接跳转查看原报道"
+            >
+              <span>{sourceLabel(s.source)}</span>
+              <span className="text-[10px]">↗</span>
+            </a>
+          ))}
+        </div>
+
+        {primaryUrl && (
           <a
-            key={i}
-            href={s.url}
+            href={primaryUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline truncate max-w-[200px]"
+            className="text-[11px] text-accent/90 hover:text-accent hover:underline shrink-0 inline-flex items-center gap-0.5 font-medium ml-auto"
           >
-            {sourceLabel(s.source)}
+            <span>查看原文</span>
+            <span>→</span>
           </a>
-        ))}
+        )}
       </div>
     </article>
   );
