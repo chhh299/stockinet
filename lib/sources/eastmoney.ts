@@ -97,7 +97,7 @@ export async function fetchEastMoneyNews({
           searchScope: "default",
           sort: "default",
           pageindex: 1,
-          pagesize: 10,
+          pagesize: 30, // 扩大单次搜索抓取深度至 30 条
           preTag: "",
           postTag: "",
         },
