@@ -16,6 +16,7 @@ test("getActiveAdapters returns all adapters matching market when no env is set"
   const cnAdapters = getActiveAdapters("CN", undefined);
   const cnIds = cnAdapters.map((a) => a.id);
   assert.ok(cnIds.includes("eastmoney"));
+  assert.ok(cnIds.includes("tencent"));
   assert.ok(cnIds.includes("cls"));
   assert.ok(cnIds.includes("sina"));
   assert.ok(cnIds.includes("ths"));

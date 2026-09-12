@@ -7,6 +7,7 @@ import { ClsAdapter } from "./cls";
 import { SinaAdapter } from "./sina";
 import { ThsAdapter } from "./ths";
 import { ResearchAdapter } from "./research";
+import { TencentAdapter } from "./tencent";
 
 export const FinnhubAdapter: SourceAdapter = {
   id: "finnhub",
@@ -40,6 +41,7 @@ export const ALL_ADAPTERS: SourceAdapter[] = [
   YahooAdapter,
   FinnhubAdapter,
   EastMoneyAdapter,
+  TencentAdapter,
   ClsAdapter,
   SinaAdapter,
   ThsAdapter,

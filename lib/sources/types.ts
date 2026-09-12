@@ -6,7 +6,8 @@ export type SourceType =
   | "cls"
   | "sina"
   | "ths"
-  | "research";
+  | "research"
+  | "tencent";
 
 export interface RawArticle {
   title: string;

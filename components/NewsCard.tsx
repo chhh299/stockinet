@@ -138,6 +138,8 @@ function sourceLabel(source: string): string {
       return "Yahoo Finance";
     case "eastmoney":
       return "东方财富";
+    case "tencent":
+      return "腾讯财经";
     case "cls":
       return "财联社";
     case "sina":
