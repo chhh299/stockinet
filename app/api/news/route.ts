@@ -19,23 +19,11 @@ export async function GET(request: NextRequest) {
   try {
     await seedInitialStocks();
 
-    const latestCluster = await prisma.newsCluster.findFirst({
-      orderBy: { publishedAt: "desc" },
-      select: { publishedAt: true },
+    // 快速读取所有活跃股票建立 ID 映射表，消灭循环查数据库的 N+1 性能黑洞
+    const allStocks = await prisma.stock.findMany({
+      select: { id: true, symbol: true, nameCn: true, market: true },
     });
-
-    const staleMs = STALE_MINUTES * 60 * 1000;
-    const isStale = !latestCluster
-      || (Date.now() - latestCluster.publishedAt.getTime() > staleMs);
-
-    if (isStale) {
-      const batch = Math.floor(Date.now() / 60000) % 8;
-      // Run with AI relevance filter + summarization. 9s cap for Vercel 10s limit.
-      await Promise.race([
-        fetchAndProcessNewsBatch(batch, false),
-        new Promise((r) => setTimeout(r, 9000)),
-      ]);
-    }
+    const stockMap = new Map(allStocks.map((s) => [s.id, s]));
 
     const where: Record<string, unknown> = {};
 
@@ -81,63 +69,56 @@ export async function GET(request: NextRequest) {
 
     let filtered = clusters;
     if (market && market !== "ALL") {
-      const stocks = await prisma.stock.findMany({
-        where: { market: market as "US" | "HK" | "CN" | "INDEX" },
-        select: { id: true },
-      });
-      const stockIds = new Set(stocks.map((s) => s.id));
       filtered = clusters.filter((c) => {
-        // 检查聚簇下任意一篇文章关联的股票 ID 是否属于当前市场
-        return c.articles.some((ca) => ca.article?.stockId && stockIds.has(ca.article.stockId));
+        return c.articles.some((ca) => {
+          const s = stockMap.get(ca.article.stockId);
+          return s && s.market === market;
+        });
       });
     }
 
     const hasMore = filtered.length > limit;
     const items = filtered.slice(0, limit);
 
-    const enriched = (
-      await Promise.all(
-        items.map(async (c) => {
-          const stockId = c.articles[0]?.article.stockId;
-          const stock = stockId
-            ? await prisma.stock.findUnique({ where: { id: stockId } })
-            : null;
+    const enriched = items
+      .map((c) => {
+        const stockId = c.articles[0]?.article.stockId;
+        const stock = stockId ? stockMap.get(stockId) : null;
 
-          // 核心防御：如果该股票是 A 股或港股，但来源是 Yahoo，直接当作历史脏数据丢弃过滤
-          if (stock && (stock.market === "CN" || stock.market === "HK")) {
-            const hasYahooOnly = c.articles.every((ca) => ca.article.source === "yahoo");
-            if (hasYahooOnly) {
-              return null;
-            }
+        // 核心防御：如果该股票是 A 股或港股，但来源是 Yahoo，直接当作历史脏数据丢弃过滤
+        if (stock && (stock.market === "CN" || stock.market === "HK")) {
+          const hasYahooOnly = c.articles.every((ca) => ca.article.source === "yahoo");
+          if (hasYahooOnly) {
+            return null;
           }
+        }
 
-          return {
-            id: c.id,
-            title: c.title,
-            aiSummary: c.aiSummary,
-            keyPoints: c.keyPoints,
-            verificationStatus: c.verificationStatus,
-            sourceCount: c.sourceCount,
-            publishedAt: c.publishedAt,
-            createdAt: c.createdAt,
-            stock: stock
-              ? { symbol: stock.symbol, nameCn: stock.nameCn, market: stock.market }
-              : null,
-            sources: c.articles.map((ca) => ({
-              title: ca.article.title,
-              url: ca.article.url,
-              source: ca.article.source,
-              publishedAt: ca.article.publishedAt,
-            })),
-          };
-        })
-      )
-    ).filter(Boolean);
+        return {
+          id: c.id,
+          title: c.title,
+          aiSummary: c.aiSummary,
+          keyPoints: c.keyPoints,
+          verificationStatus: c.verificationStatus,
+          sourceCount: c.sourceCount,
+          publishedAt: c.publishedAt,
+          createdAt: c.createdAt,
+          stock: stock
+            ? { symbol: stock.symbol, nameCn: stock.nameCn, market: stock.market }
+            : null,
+          sources: c.articles.map((ca) => ({
+            title: ca.article.title,
+            url: ca.article.url,
+            source: ca.article.source,
+            publishedAt: ca.article.publishedAt,
+          })),
+        };
+      })
+      .filter(Boolean);
 
     const response = NextResponse.json({
       items: enriched,
       nextCursor: hasMore ? String(items[items.length - 1]?.id) : null,
-      refreshing: isStale,
+      refreshing: false,
     });
     response.headers.set("Cache-Control", "no-store, max-age=0");
     return response;
