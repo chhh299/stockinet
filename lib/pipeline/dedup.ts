@@ -183,8 +183,8 @@ export function groupSimilarArticles(allArticles: RawArticle[]): ArticleGroup[] 
       for (const existing of group.articles) {
         // 同一股票标的优先聚类；不同标的若是同名宏观事件亦可参与计算
         const similarity = calculateSemanticSimilarity(article.title, existing.title);
-        // 相似度门限达到 0.65 视为同一事件的多源报道
-        if (similarity >= 0.65) {
+        // 相似度阈值适度微调至 0.72：确保真正相同主题的报道才合并，避免把完全不同的新闻强行合并吞掉
+        if (similarity >= 0.72) {
           group.articles.push(article);
           group.sourceTypes.add(article.source);
           matched = true;
