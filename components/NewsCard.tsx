@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { formatDistanceToNow } from "./time-utils";
 
 interface NewsCardProps {
@@ -30,10 +33,13 @@ export function NewsCard({
   stock,
   sources,
 }: NewsCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const isVerified = verificationStatus === "verified";
   const timeAgo = formatDistanceToNow(new Date(publishedAt));
 
   const primaryUrl = sources[0]?.url;
+  // 提取同一事件聚合的其他报道与信源
+  const otherSources = sources.length > 1 ? sources.slice(1) : [];
 
   return (
     <article className="bg-surface rounded-lg border border-border p-4 hover:border-accent/40 transition-colors group">
@@ -91,6 +97,40 @@ export function NewsCard({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* 展开查看其他媒体的报道与视角 */}
+      {otherSources.length > 0 && (
+        <div className="mb-3 pt-1">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="text-xs text-accent hover:underline flex items-center gap-1 font-medium cursor-pointer"
+          >
+            <span>{expanded ? "▾ 收起其他媒体报道" : `▸ 展开其他 ${otherSources.length} 篇相关报道与信源`}</span>
+          </button>
+
+          {expanded && (
+            <div className="mt-2 pl-3 border-l-2 border-accent/40 space-y-2 py-1.5 bg-surface-hover/30 rounded-r">
+              {otherSources.map((item, idx) => (
+                <div key={idx} className="text-xs flex items-center justify-between gap-2">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-text-secondary hover:text-text-primary hover:underline truncate flex-1"
+                    title={item.title}
+                  >
+                    {item.title}
+                  </a>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border/80 text-text-secondary font-mono shrink-0">
+                    {sourceLabel(item.source)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* 底部来源与直达跳转 */}
