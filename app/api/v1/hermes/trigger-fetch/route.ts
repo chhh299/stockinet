@@ -3,6 +3,7 @@ import { authenticateHermesRequest } from "@/lib/hermes/auth";
 import { fetchAndProcessNewsBatch } from "@/lib/pipeline/fetch-all";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 允许最长执行 60 秒，彻底规避 Vercel 默认超时中断问题
 
 // POST /api/v1/hermes/trigger-fetch
 // Body: { symbol?: string, skipAi?: boolean }

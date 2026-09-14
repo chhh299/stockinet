@@ -46,42 +46,45 @@ export async function fetchAndProcessNewsBatch(
     return { articlesFetched: 0, clustersCreated: 0, batchesTotal, errors: ["Invalid batch or no active stocks"] };
   }
 
-  for (const stock of batchStocks) {
-    const adapters = getActiveAdapters(stock.market);
-    const results = await Promise.allSettled(
-      adapters.map((adapter) =>
-        adapter.fetch({
-          symbol: stock.symbol,
-          name: stock.name,
-          nameCn: stock.nameCn,
-          market: stock.market,
-          stockId: stock.id,
-        })
-      )
-    );
+  // 全部股票并发并行抓取，彻底避免串行等待导致的 Vercel 30 秒超时 500 错误
+  await Promise.allSettled(
+    batchStocks.map(async (stock) => {
+      const adapters = getActiveAdapters(stock.market);
+      const results = await Promise.allSettled(
+        adapters.map((adapter) =>
+          adapter.fetch({
+            symbol: stock.symbol,
+            name: stock.name,
+            nameCn: stock.nameCn,
+            market: stock.market,
+            stockId: stock.id,
+          })
+        )
+      );
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const adapter = adapters[i];
-      if (result.status === "fulfilled") {
-        // 对 A 股 / 港股新闻进行强校验过滤：标题或摘要必须包含股票名称或纯数字代码，杜绝无关英文/宏观噪音
-        const validArticles = result.value.filter((art) => {
-          if (stock.market === "CN" || stock.market === "HK") {
-            const cleanCode = stock.symbol.replace(/\.(SS|SZ|HK)/i, "");
-            const text = `${art.title} ${art.snippet}`;
-            const matchesName = stock.nameCn && text.includes(stock.nameCn);
-            const matchesCode = cleanCode.length >= 4 && text.includes(cleanCode);
-            return matchesName || matchesCode;
-          }
-          return true;
-        });
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const adapter = adapters[i];
+        if (result.status === "fulfilled") {
+          // 对 A 股 / 港股新闻进行强校验过滤：标题或摘要必须包含股票名称或纯数字代码，杜绝无关英文/宏观噪音
+          const validArticles = result.value.filter((art) => {
+            if (stock.market === "CN" || stock.market === "HK") {
+              const cleanCode = stock.symbol.replace(/\.(SS|SZ|HK)/i, "");
+              const text = `${art.title} ${art.snippet}`;
+              const matchesName = stock.nameCn && text.includes(stock.nameCn);
+              const matchesCode = cleanCode.length >= 4 && text.includes(cleanCode);
+              return matchesName || matchesCode;
+            }
+            return true;
+          });
 
-        allRawArticles.push(...validArticles);
-      } else {
-        errors.push(`Fetch error for ${stock.symbol} via ${adapter.id}: ${result.reason}`);
+          allRawArticles.push(...validArticles);
+        } else {
+          errors.push(`Fetch error for ${stock.symbol} via ${adapter.id}: ${result.reason}`);
+        }
       }
-    }
-  }
+    })
+  );
 
   const groups = groupSimilarArticles(allRawArticles);
   let clustersCreated = 0;

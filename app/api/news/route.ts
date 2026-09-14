@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { fetchAndProcessNewsBatch } from "@/lib/pipeline/fetch-all";
 import { seedInitialStocks } from "@/lib/stocks-seed";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 const STALE_MINUTES = 65;
 
 export async function GET(request: NextRequest) {
