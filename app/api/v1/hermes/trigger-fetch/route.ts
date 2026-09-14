@@ -19,8 +19,27 @@ export async function POST(request: NextRequest) {
     const symbol = body.symbol ? String(body.symbol).trim() : undefined;
     const startMs = Date.now();
 
-    // 默认执行全量或指定股票的并发抓取 (-1 表示全量)
-    const result = await fetchAndProcessNewsBatch(-1, skipAi, symbol);
+    // 增加 8.5 秒安全熔断上限，防止超过 Vercel 10 秒硬限制导致网关 500
+    const fetchPromise = fetchAndProcessNewsBatch(-1, skipAi, symbol);
+    const timeoutPromise = new Promise<{
+      articlesFetched: number;
+      clustersCreated: number;
+      batchesTotal: number;
+      errors: string[];
+    }>((resolve) =>
+      setTimeout(
+        () =>
+          resolve({
+            articlesFetched: 0,
+            clustersCreated: 0,
+            batchesTotal: 1,
+            errors: ["Vercel timeout guard triggered"],
+          }),
+        8500
+      )
+    );
+
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
     const elapsedMs = Date.now() - startMs;
 
     return NextResponse.json({
