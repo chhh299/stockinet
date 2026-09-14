@@ -30,7 +30,7 @@ export async function fetchEastMoneyNews({
     const noticeUrl = `https://np-anotice-stock.eastmoney.com/api/security/ann?page_size=10&page_index=1&ann_type=${annType}&client_source=web&stock_list=${paddedCode}`;
     const res = await fetch(noticeUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
 
     if (res.ok) {
@@ -57,7 +57,7 @@ export async function fetchEastMoneyNews({
     const fastNewsUrl = `https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastColumn=102&sortEnd=&pageSize=50&req_trace=${Date.now()}`;
     const res = await fetch(fastNewsUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
 
     if (res.ok) {
@@ -110,7 +110,7 @@ export async function fetchEastMoneyNews({
 
     const res = await fetch(searchUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(3000),
     });
 
     if (res.ok) {

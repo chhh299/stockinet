@@ -21,18 +21,18 @@ test("getActiveAdapters returns all adapters matching market when no env is set"
   assert.ok(cnIds.includes("sina"));
   assert.ok(cnIds.includes("ths"));
   assert.ok(cnIds.includes("research"));
-  assert.ok(cnIds.includes("googlenews"));
-  // Yahoo / Finnhub 不支持 CN (A股纯中文市场)
+  // GoogleNews / Yahoo / Finnhub 仅限海外市场，不支持 CN
+  assert.equal(cnIds.includes("googlenews"), false);
   assert.equal(cnIds.includes("yahoo"), false);
   assert.equal(cnIds.includes("finnhub"), false);
 });
 
 test("getActiveAdapters filters by ENABLED_NEWS_SOURCES", () => {
-  const envSources = "eastmoney, googlenews";
+  const envSources = "eastmoney, tencent";
   const adapters = getActiveAdapters("CN", envSources);
   const ids = adapters.map((a) => a.id);
 
-  assert.deepEqual(ids.sort(), ["eastmoney", "googlenews"]);
+  assert.deepEqual(ids.sort(), ["eastmoney", "tencent"]);
 });
 
 test("getActiveAdapters handles invalid / unknown source IDs in env gracefully", () => {

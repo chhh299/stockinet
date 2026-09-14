@@ -21,8 +21,8 @@ export const FinnhubAdapter: SourceAdapter = {
 export const GoogleNewsAdapter: SourceAdapter = {
   id: "googlenews",
   name: "Google News",
-  supportsMarket(): boolean {
-    return true; // Supports all markets
+  supportsMarket(market: string): boolean {
+    return market === "US" || market === "INDEX"; // Google News 在云端网络慢，仅限海外美股/指数，A股由东财/同花顺/腾讯全权负责
   },
   fetch: fetchGoogleNews,
 };

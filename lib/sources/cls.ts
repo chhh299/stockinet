@@ -21,7 +21,7 @@ export async function fetchClsNews({
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(2500), // 收紧为 2.5 秒，避免拖累全局抓取
     });
 
     if (res.ok) {
