@@ -86,7 +86,23 @@ export async function fetchAndProcessNewsBatch(
     })
   );
 
-  const groups = groupSimilarArticles(allRawArticles).slice(0, 15); // 精简每次处理的高质量聚类，避免数据库往返过多导致 12 秒超时
+  // 关键修复：入库聚类前，必须将全网抓回来的所有原始文章按发布时间绝对倒序排序！
+  // 确保今天 (9月14日) 和最近两天的最新消息排在最前面，绝不让两周前的历史旧闻抢占入库名额
+  allRawArticles.sort((a, b) => {
+    const timeA = a.publishedAt ? a.publishedAt.getTime() : 0;
+    const timeB = b.publishedAt ? b.publishedAt.getTime() : 0;
+    return timeB - timeA;
+  });
+
+  const allGroups = groupSimilarArticles(allRawArticles);
+  // 聚类组同样按最新时间倒序，优先保留最新的前 25 个新鲜聚簇
+  allGroups.sort((a, b) => {
+    const tA = a.articles[0]?.publishedAt ? a.articles[0].publishedAt.getTime() : 0;
+    const tB = b.articles[0]?.publishedAt ? b.articles[0].publishedAt.getTime() : 0;
+    return tB - tA;
+  });
+
+  const groups = allGroups.slice(0, 25);
   let clustersCreated = 0;
 
   // 使用并发并行处理聚类入库，避免串行 await 耗尽 Serverless 10 秒时间窗口
