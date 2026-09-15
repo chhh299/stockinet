@@ -182,6 +182,9 @@ export async function callLlmChat(
         return content?.trim() || null;
       }
 
+      const errorText = await res.text().catch(() => "");
+      console.error(`[LLM Error] HTTP ${res.status} from ${endpoint} (model: ${config.model}):`, errorText.slice(0, 300));
+
       // Retry on 429 or 5xx server errors
       if ((res.status === 429 || res.status >= 500) && attempt < config.maxRetries - 1) {
         const jitter = Math.random() * 300;
@@ -191,8 +194,9 @@ export async function callLlmChat(
       }
 
       return null;
-    } catch {
+    } catch (fetchErr) {
       clearTimeout(timer);
+      console.error(`[LLM Network Exception] attempt ${attempt + 1}/${config.maxRetries}:`, String(fetchErr));
       if (attempt < config.maxRetries - 1) {
         const jitter = Math.random() * 300;
         const backoff = Math.min(500 * Math.pow(2, attempt) + jitter, 5000);
