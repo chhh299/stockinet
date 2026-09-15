@@ -18,7 +18,12 @@ export function resolveLlmConfig(env: Record<string, string | undefined> = proce
     ? "https://api.deepseek.com/v1"
     : "https://api.openai.com/v1";
 
-  const baseUrl = (env.LLM_BASE_URL || defaultBaseUrl).replace(/\/+$/, "");
+  let rawBaseUrl = (env.LLM_BASE_URL || defaultBaseUrl).replace(/\/+$/, "");
+  // 自动容错：如果填写的 BaseURL 缺少 /v1，自动智能补齐 /v1，防止拼成 404
+  if (!rawBaseUrl.endsWith("/v1") && !rawBaseUrl.includes("/v1/")) {
+    rawBaseUrl = `${rawBaseUrl}/v1`;
+  }
+  const baseUrl = rawBaseUrl;
 
   const defaultModel = env.LLM_API_KEY
     ? "gpt-4o-mini"
