@@ -10,8 +10,10 @@ export async function GET() {
     ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)} (length: ${config.apiKey.length})`
     : "未配置 (null)";
 
+  const endpoint = `${config.baseUrl}/chat/completions`;
   const info = {
     status: "testing",
+    endpoint,
     resolvedConfig: {
       baseUrl: config.baseUrl,
       model: config.model,
@@ -20,7 +22,7 @@ export async function GET() {
       maxTokens: config.maxTokens,
       timeoutMs: config.timeoutMs,
     },
-    testResult: null as unknown,
+    rawResponse: null as unknown,
     error: null as string | null,
   };
 
@@ -32,20 +34,34 @@ export async function GET() {
 
   try {
     const t0 = Date.now();
-    const reply = await callLlmChat("你是一个金融助手。请仅回复：连接成功。", {
-      maxTokens: 50,
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [{ role: "user", content: "Hi" }],
+        max_tokens: 20,
+      }),
     });
+
+    const status = res.status;
+    const bodyText = await res.text();
     const elapsedMs = Date.now() - t0;
 
-    if (reply) {
+    info.rawResponse = {
+      httpStatus: status,
+      bodyPreview: bodyText.slice(0, 500),
+      elapsedMs,
+    };
+
+    if (res.ok) {
       info.status = "success";
-      info.testResult = {
-        reply,
-        elapsedMs,
-      };
     } else {
       info.status = "failed";
-      info.error = "模型请求已发送，但未收到有效回复（可能是 model 名字不匹配、URL 末尾缺少 /v1、或者网络受限，请在 Vercel Runtime Logs 查看 [LLM Error] 详细报错）";
+      info.error = `HTTP ${status}: ${bodyText.slice(0, 300)}`;
     }
   } catch (err) {
     info.status = "exception";
