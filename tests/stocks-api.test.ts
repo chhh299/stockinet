@@ -285,6 +285,11 @@ test("PATCH and DELETE /api/stocks/[id] parameter, not-found and update validati
   assert.equal(capturedUpdate.data?.nameCn, "更新中文名");
 
   let deletedId: number | undefined = undefined;
+  prisma.article.findMany = (async () => []) as unknown as typeof prisma.article.findMany;
+  prisma.clusterArticle.findMany = (async () => []) as unknown as typeof prisma.clusterArticle.findMany;
+  prisma.clusterArticle.deleteMany = (async () => ({ count: 0 })) as unknown as typeof prisma.clusterArticle.deleteMany;
+  prisma.newsCluster.deleteMany = (async () => ({ count: 0 })) as unknown as typeof prisma.newsCluster.deleteMany;
+
   prisma.stock.delete = (async (args: { where: { id: number } }) => {
     deletedId = args.where.id;
     return {

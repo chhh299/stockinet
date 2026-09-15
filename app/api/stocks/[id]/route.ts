@@ -74,7 +74,33 @@ export async function DELETE(
       return NextResponse.json({ error: "标的不存在" }, { status: 404 });
     }
 
-    // Cascade delete stock and associated articles
+    // 1. 查找属于该股票的文章 ID 列表
+    const articles = await prisma.article.findMany({
+      where: { stockId: id },
+      select: { id: true },
+    });
+    const articleIds = articles.map((a) => a.id);
+
+    if (articleIds.length > 0) {
+      // 2. 查找关联这些文章的聚簇 ID
+      const clusterLinks = await prisma.clusterArticle.findMany({
+        where: { articleId: { in: articleIds } },
+        select: { clusterId: true },
+      });
+      const clusterIds = clusterLinks.map((cl) => cl.clusterId);
+
+      // 3. 删除中间表与聚簇卡片，确保彻底清理干净
+      if (clusterIds.length > 0) {
+        await prisma.clusterArticle.deleteMany({
+          where: { clusterId: { in: clusterIds } },
+        });
+        await prisma.newsCluster.deleteMany({
+          where: { id: { in: clusterIds } },
+        });
+      }
+    }
+
+    // 4. Cascade 删除股票本身和其下文章
     await prisma.stock.delete({ where: { id } });
 
     return NextResponse.json({ success: true, deletedId: id });

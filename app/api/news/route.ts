@@ -19,11 +19,13 @@ export async function GET(request: NextRequest) {
   try {
     await seedInitialStocks();
 
-    // 快速读取所有活跃股票建立 ID 映射表，消灭循环查数据库的 N+1 性能黑洞
-    const allStocks = await prisma.stock.findMany({
+    // 快速读取所有当前处于活跃监控状态的股票
+    const allActiveStocks = await prisma.stock.findMany({
+      where: { isActive: true },
       select: { id: true, symbol: true, nameCn: true, market: true },
     });
-    const stockMap = new Map(allStocks.map((s) => [s.id, s]));
+    const activeStockIds = new Set(allActiveStocks.map((s) => s.id));
+    const stockMap = new Map(allActiveStocks.map((s) => [s.id, s]));
 
     const where: Record<string, unknown> = {};
 
@@ -40,6 +42,15 @@ export async function GET(request: NextRequest) {
         some: {
           article: {
             stock: { symbol: symbol.toUpperCase() },
+          },
+        },
+      };
+    } else {
+      // 核心约束：新闻必须属于当前仍然存在且处于激活状态的自选股，已被删除的自选股新闻立刻隐藏
+      where.articles = {
+        some: {
+          article: {
+            stockId: { in: Array.from(activeStockIds) },
           },
         },
       };
