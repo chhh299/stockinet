@@ -170,8 +170,8 @@ export function calculateSemanticSimilarity(left: string, right: string): number
 export function groupSimilarArticles(allArticles: RawArticle[]): ArticleGroup[] {
   const groups: ArticleGroup[] = [];
   const now = Date.now();
-  // 严格聚焦最近 15 天内的新闻动态与研报，既过滤掉陈旧杂音，又提升抓取处理速度
-  const windowMs = 15 * 24 * 60 * 60 * 1000;
+  // 严格聚焦最近 7 天内的新鲜资讯与核心动态，干扰极少，时效性与计算性能达到最优
+  const windowMs = 7 * 24 * 60 * 60 * 1000;
 
   for (const article of allArticles) {
     const pubTime = article.publishedAt ? article.publishedAt.getTime() : now;

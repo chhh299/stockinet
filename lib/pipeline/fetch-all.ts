@@ -182,11 +182,11 @@ export async function fetchAndProcessNewsBatch(
     })
   );
 
-  // Cleanup only on last batch (清理 15 天前过期记录)
+  // Cleanup only on last batch (严格清理 7 天前过期记录)
   if (batch === batchesTotal - 1) {
-    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
-    await prisma.newsCluster.deleteMany({ where: { publishedAt: { lt: fifteenDaysAgo } } });
-    await prisma.article.deleteMany({ where: { publishedAt: { lt: fifteenDaysAgo } } });
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    await prisma.newsCluster.deleteMany({ where: { publishedAt: { lt: sevenDaysAgo } } });
+    await prisma.article.deleteMany({ where: { publishedAt: { lt: sevenDaysAgo } } });
   }
 
   return { articlesFetched: allRawArticles.length, clustersCreated, batchesTotal, errors };
